@@ -422,77 +422,7 @@ export const HealthRecords = () => {
     }
   };
 
-  // Add function to check API keys
-  (window as any).checkAPIKeys = () => {
-      console.log('🔍 Checking API keys...');
-      const perplexityKey = import.meta.env.VITE_PERPLEXITY_API_KEY || (window as any).PERPLEXITY_API_KEY;
-    
-    console.log('🔑 Perplexity API Key:', perplexityKey ? 'Found (' + perplexityKey.substring(0, 10) + '...)' : 'Not found');
-    console.log('🔍 All env vars:', Object.keys(import.meta.env).filter(key => key.includes('PERPLEXITY')));
-      console.log('🔍 VITE_PERPLEXITY_API_KEY value:', import.meta.env.VITE_PERPLEXITY_API_KEY);
-    
-      return { perplexityKey: !!perplexityKey };
-  };
-
-  // Add function to manually set API key for testing
-  (window as any).setPerplexityAPIKey = (key: string) => {
-    console.log('🔧 Manually setting Perplexity API key...');
-    (window as any).PERPLEXITY_API_KEY = key;
-    console.log('✅ API key set:', key ? key.substring(0, 10) + '...' : 'None');
-  };
-
-  // Add function to set the hardcoded API key for immediate testing
-  // Add function to test Perplexity API directly
-  (window as any).testPerplexityAPI = async () => {
-    console.log('🧪 Testing Perplexity API directly...');
-    try {
-      let perplexityKey = import.meta.env.VITE_PERPLEXITY_API_KEY;
-      
-      // Fallback to manually set key
-      if (!perplexityKey) {
-        perplexityKey = (window as any).PERPLEXITY_API_KEY;
-      }
-      
-      console.log('🔑 Using API key:', perplexityKey ? perplexityKey.substring(0, 10) + '...' : 'None');
-      
-      if (!perplexityKey) {
-        console.error('❌ No Perplexity API key found');
-        return;
-      }
-
-      const response = await fetch('https://api.perplexity.ai/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${perplexityKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-sonar-small-128k',
-          messages: [
-            {
-              role: 'user',
-              content: 'Hello, this is a test. Please respond with "Perplexity API is working!"'
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 100
-        })
-      });
-
-      if (!response.ok) {
-        console.error('❌ Perplexity API error:', response.status, response.statusText);
-        const errorText = await response.text();
-        console.error('❌ Error details:', errorText);
-        return;
-      }
-
-      const data = await response.json();
-      console.log('✅ Perplexity API test successful:', data);
-      return data;
-    } catch (error) {
-      console.error('❌ Perplexity API test failed:', error);
-    }
-  };
+  // Perplexity API utilities removed as not needed
 
   const triggerAIAnalysis = async (
     recordId: string, 
