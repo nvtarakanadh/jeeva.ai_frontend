@@ -62,14 +62,8 @@ export default defineConfig({
     sourcemap: process.env.NODE_ENV === 'development',
     // Optimize chunk size
     chunkSizeWarningLimit: 1000,
-    // Minify options
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: process.env.NODE_ENV === 'production',
-        drop_debugger: true,
-      },
-    },
+    // Minify using esbuild to avoid optional terser dependency on Vercel
+    minify: 'esbuild',
     // Target modern browsers for better optimization
     target: 'esnext',
   },
