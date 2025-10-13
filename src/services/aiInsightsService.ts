@@ -21,14 +21,11 @@ export const getAIInsights = async (userId: string): Promise<AIInsight[]> => {
   try {
     console.log('🔄 Fetching AI insights for user:', userId);
     
-    // Use a single query with join instead of two separate queries
+    // Query ai_insights table directly by user_id
     const { data, error } = await supabase
       .from('ai_insights')
-      .select(`
-        *,
-        health_records!inner(user_id)
-      `)
-      .eq('health_records.user_id', userId)
+      .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -42,6 +39,7 @@ export const getAIInsights = async (userId: string): Promise<AIInsight[]> => {
     }
 
     console.log('✅ AI insights fetched:', data?.length || 0);
+    console.log('📋 AI insights data:', data);
     return data || [];
   } catch (error) {
     console.error('Error in getAIInsights:', error);

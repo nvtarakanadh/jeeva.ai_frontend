@@ -14,7 +14,7 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Notification } from '@/types';
+import type { Notification } from '../../types/notification';
 import { supabase } from '@/integrations/supabase/client';
 
 const getNotificationIcon = (type: string) => {

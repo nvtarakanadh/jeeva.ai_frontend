@@ -132,7 +132,7 @@ const CreateConsentRequest: React.FC<CreateConsentRequestProps> = ({ doctorId, o
           Request Consent
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
+      <DialogContent className="max-w-[95vw] md:max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
         <DialogHeader>
           <DialogTitle>Create Consent Request</DialogTitle>
           <DialogDescription>
@@ -224,16 +224,17 @@ const CreateConsentRequest: React.FC<CreateConsentRequestProps> = ({ doctorId, o
             </Select>
           </div>
 
-          <div className="flex justify-end space-x-2">
+          <div className="flex flex-col sm:flex-row justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => setIsOpen(false)}
+              className="w-full sm:w-auto"
               disabled={loading}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || !selectedPatient || !purpose || selectedDataTypes.length === 0}>
+            <Button type="submit" disabled={loading || !selectedPatient || !purpose || selectedDataTypes.length === 0} className="w-full sm:w-auto">
               <Send className="h-4 w-4 mr-2" />
               {loading ? 'Sending...' : 'Send Request'}
             </Button>

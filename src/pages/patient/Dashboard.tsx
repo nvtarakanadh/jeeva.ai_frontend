@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, Shield, Activity, AlertCircle } from 'lucide-react';
@@ -18,12 +18,19 @@ import QuickActions from '@/components/layout/QuickActions';
 import PatientCalendarComponent, { PatientAppointment } from '@/components/calendar/PatientCalendarComponent';
 import PatientSchedulingModal, { PatientScheduleData } from '@/components/calendar/PatientSchedulingModal';
 import DayViewModal, { DayViewEvent } from '@/components/calendar/DayViewModal';
+import { useLoadingState } from '@/hooks/useLoadingState';
 
 const PatientDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  const [loading, setLoading] = useState(true);
+  const { loading, setLoading, error, setError, reset } = useLoadingState({
+    initialLoading: true,
+    resetOnLocationChange: true,
+    debounceMs: 100
+  });
+  
+  const isMountedRef = useRef(true);
   const [healthRecords, setHealthRecords] = useState({ totalRecords: 0, recentRecords: [] });
   const [aiInsights, setAiInsights] = useState({ totalInsights: 0, recentInsights: [], averageConfidence: 0 });
   const [activeConsents, setActiveConsents] = useState(0);
@@ -530,7 +537,7 @@ const PatientDashboard = () => {
 
   useEffect(() => {
     const loadDashboardData = async () => {
-      if (!user?.id) return;
+      if (!user?.id || !isMountedRef.current) return;
       
       try {
         setLoading(true);
@@ -559,10 +566,12 @@ const PatientDashboard = () => {
           getCachedAppointments(user.id)
         ]);
 
-        // Set critical data immediately
-        setHealthRecords(healthRecordsData as any);
-        setAppointments(appointmentsData as any);
-        console.log('✅ Critical data loaded');
+        // Set critical data immediately (only if component is still mounted)
+        if (isMountedRef.current) {
+          setHealthRecords(healthRecordsData as any);
+          setAppointments(appointmentsData as any);
+          console.log('✅ Critical data loaded');
+        }
 
         // Phase 2: Load secondary data (can be slower)
         const [
@@ -592,12 +601,22 @@ const PatientDashboard = () => {
         console.log('✅ All dashboard data loaded');
       } catch (error) {
         console.error('❌ Error loading dashboard data:', error);
+        if (isMountedRef.current) {
+          setError('Failed to load dashboard data');
+        }
       } finally {
-        setLoading(false);
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
       }
     };
 
     loadDashboardData();
+    
+    // Cleanup function
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [user?.id]);
 
   // Real-time subscription for consultations

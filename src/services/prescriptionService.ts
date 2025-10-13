@@ -1,5 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
-import { createPrescriptionNotification, createConsultationNoteNotification } from './notificationService';
+import { 
+  createPrescriptionNotification, 
+  createConsultationNoteNotification,
+  createPrescriptionUpdatedNotification,
+  createConsultationNoteUpdatedNotification
+} from './notificationService';
 
 export interface Prescription {
   id: string;
@@ -448,6 +453,127 @@ export const getConsultationNotesForDoctor = async (doctorId: string): Promise<C
         email: item.profiles?.email || ''
       }
     }));
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Update prescription
+export const updatePrescription = async (
+  prescriptionId: string,
+  updateData: Partial<{
+    title: string;
+    description: string;
+    medication: string;
+    dosage: string;
+    frequency: string;
+    duration: string;
+    instructions: string;
+    prescription_date: string;
+    file_url?: string;
+    file_name?: string;
+  }>
+): Promise<Prescription> => {
+  try {
+    const { data, error } = await supabase
+      .from('prescriptions')
+      .update(updateData)
+      .eq('id', prescriptionId)
+      .select(`
+        *,
+        profiles!prescriptions_doctor_id_fkey (
+          full_name,
+          email
+        )
+      `)
+      .single();
+
+    if (error) throw error;
+
+    // Get patient user_id for notification
+    const { data: patientUser, error: patientUserError } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('id', data.patient_id)
+      .single();
+
+    // Create notification for patient about prescription update
+    if (patientUser && !patientUserError) {
+      await createPrescriptionUpdatedNotification(
+        patientUser.user_id,
+        data.patient_id,
+        data.profiles?.full_name || 'Doctor',
+        data.title
+      );
+    }
+
+    return {
+      ...data,
+      profiles: {
+        full_name: data.profiles?.full_name || 'Unknown',
+        email: data.profiles?.email || ''
+      }
+    };
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Update consultation note
+export const updateConsultationNote = async (
+  noteId: string,
+  updateData: Partial<{
+    title: string;
+    description: string;
+    diagnosis: string;
+    recommendations: string;
+    follow_up_required: boolean;
+    follow_up_date?: string;
+    consultation_date: string;
+    file_url?: string;
+    file_name?: string;
+  }>
+): Promise<ConsultationNote> => {
+  try {
+    const { data, error } = await supabase
+      .from('consultation_notes')
+      .update(updateData)
+      .eq('id', noteId)
+      .select(`
+        *,
+        profiles!consultation_notes_doctor_id_fkey (
+          full_name,
+          email
+        )
+      `)
+      .single();
+
+    if (error) throw error;
+
+    // Get patient user_id for notification
+    const { data: patientUser, error: patientUserError } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('id', data.patient_id)
+      .single();
+
+    // Create notification for patient about consultation note update
+    if (patientUser && !patientUserError) {
+      await createConsultationNoteUpdatedNotification(
+        patientUser.user_id,
+        data.patient_id,
+        data.profiles?.full_name || 'Doctor',
+        data.title
+      );
+    }
+
+    return {
+      ...data,
+      profiles: {
+        full_name: data.profiles?.full_name || 'Unknown',
+        email: data.profiles?.email || ''
+      }
+    };
   } catch (error) {
     throw error;
   }

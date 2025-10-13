@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { NavigationProvider } from "@/contexts/NavigationContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { PageSkeleton } from "@/components/ui/skeleton-loading";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -51,9 +52,10 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <AuthProvider>
-            <NotificationProvider>
-              <ErrorBoundary>
+          <NavigationProvider>
+            <AuthProvider>
+              <NotificationProvider>
+                <ErrorBoundary>
                 <Suspense fallback={<PageSkeleton />}>
                 <Routes>
                         <Route path="/" element={<Index />} />
@@ -153,10 +155,11 @@ const App = () => {
                 <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
-            </ErrorBoundary>
-          </NotificationProvider>
-        </AuthProvider>
-      </BrowserRouter>
+                </ErrorBoundary>
+              </NotificationProvider>
+            </AuthProvider>
+          </NavigationProvider>
+        </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
   );

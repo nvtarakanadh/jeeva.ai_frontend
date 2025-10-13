@@ -9,17 +9,32 @@ export default defineConfig({
     port: 8080,
     hmr: {
       port: 8080,
+      overlay: true
     },
-    // Disable caching in development to prevent blank screen issues
+    // Optimize file watching to prevent excessive reloads
+    watch: {
+      usePolling: false,
+      interval: 1000,
+      ignored: [
+        '**/node_modules/**', 
+        '**/dist/**', 
+        '**/.git/**',
+        '**/*.sql',
+        '**/*.md',
+        '**/supabase/**',
+        '**/*.lock',
+        '**/*.log',
+        '**/*.tmp',
+        '**/*.temp'
+      ]
+    },
+    // Disable aggressive caching that causes reload issues
     headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0'
+      'Cache-Control': 'no-cache'
     },
-    // Force no cache for all requests
-    middlewareMode: false,
     fs: {
-      strict: false
+      strict: false,
+      allow: ['..']
     }
   },
   plugins: [react()],
@@ -70,9 +85,7 @@ export default defineConfig({
     ],
     exclude: [
       // Exclude heavy dependencies that are loaded on demand
-    ],
-    // Force re-bundling in development
-    force: process.env.NODE_ENV === 'development'
+    ]
   },
   // Ensure proper module resolution
   esbuild: {

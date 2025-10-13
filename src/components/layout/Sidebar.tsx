@@ -58,11 +58,35 @@ const comingSoonItems: NavItem[] = [
   { label: 'Finance Partners', icon: CreditCard, href: '#', roles: ['patient', 'doctor'], badge: 'Soon' },
 ];
 
-export const Sidebar: React.FC = () => {
+type SidebarProps = { forceExpanded?: boolean };
+
+export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    // Default to collapsed on smaller viewports
+    return forceExpanded ? false : window.innerWidth < 1024; // collapse by default below lg
+  });
+
+  React.useEffect(() => {
+    if (forceExpanded) return; // don't auto-collapse in forced expanded mode (mobile drawer)
+    const onResize = () => {
+      // Auto-collapse when viewport shrinks below lg; expand when wider if not manually toggled
+      setIsCollapsed(prev => (window.innerWidth < 1024 ? true : prev));
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Listen for global toggle events triggered from the header hamburger
+  React.useEffect(() => {
+    if (forceExpanded) return; // header toggle not needed in forced mode
+    const handler = () => setIsCollapsed(prev => !prev);
+    window.addEventListener('sidebar-toggle', handler as any);
+    return () => window.removeEventListener('sidebar-toggle', handler as any);
+  }, []);
 
   const navItems = user?.role === 'doctor' ? doctorNavItems : patientNavItems;
 
@@ -83,18 +107,8 @@ export const Sidebar: React.FC = () => {
         isCollapsed ? "w-16" : "w-64"
       )} role="navigation" aria-label="Sidebar Navigation">
         <div className="p-4 space-y-6">
-        {/* Hamburger Menu Button */}
-        <div className="flex justify-center mb-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleSidebar}
-            className="h-8 w-8 p-0 hover:bg-accent transition-colors"
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <Menu className="h-4 w-4" />
-          </Button>
-        </div>
+        {/* Top spacing to align with header height */}
+        <div className="mb-2" />
 
         {/* Main Navigation */}
         <div>
@@ -104,14 +118,13 @@ export const Sidebar: React.FC = () => {
             </h2>
           )}
           <nav className="space-y-1">
-            {navItems.map((item) => {
+            {navItems.map((item, index) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.href;
               
               const button = (
-                <div className="relative">
+                <div key={item.href} className="relative">
                   <Button
-                    key={item.href}
                     variant={isActive ? "secondary" : "ghost"}
                     className={cn(
                       "w-full h-10",
@@ -142,7 +155,7 @@ export const Sidebar: React.FC = () => {
               );
 
               return isCollapsed ? (
-                <Tooltip key={item.href}>
+                <Tooltip key={`tooltip-${item.href}`}>
                   <TooltipTrigger asChild>
                     {button}
                   </TooltipTrigger>
@@ -162,7 +175,7 @@ export const Sidebar: React.FC = () => {
               Coming Soon
             </h2>
             <nav className="space-y-1">
-              {comingSoonItems.map((item) => {
+              {comingSoonItems.map((item, index) => {
                 const Icon = item.icon;
                 
                 return (

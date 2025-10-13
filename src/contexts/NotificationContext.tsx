@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Notification } from '@/types';
+import type { Notification } from '../types/notification';
 import { 
   getUserNotifications, 
   markNotificationAsRead, 
   markAllNotificationsAsRead,
   getUnreadCount,
-  deleteNotification as deleteNotificationService
+  deleteNotification as deleteNotificationService,
+  realtimeNotificationService
 } from '@/services/notificationService';
 
 interface NotificationContextType {
@@ -18,6 +19,7 @@ interface NotificationContextType {
   markAllAsRead: () => void;
   deleteNotification: (id: string) => void;
   refreshNotifications: () => void;
+  requestNotificationPermission: () => Promise<boolean>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -34,17 +36,23 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     if (user?.id) {
       loadNotifications();
       setupRealtimeSubscription();
+      
+      // Fallback: Poll for notifications every 30 seconds if real-time fails
+      const pollInterval = setInterval(() => {
+        console.log('🔍 Polling for new notifications...');
+        loadNotifications();
+      }, 30000);
+
+      return () => {
+        // Cleanup realtime subscriptions
+        if (user?.id) {
+          realtimeNotificationService.unsubscribeFromUserNotifications(user.id);
+        }
+        clearInterval(pollInterval);
+      };
     } else {
       setNotifications([]);
     }
-
-    return () => {
-      // Cleanup subscription
-      const subscription = supabase
-        .channel('notifications')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {});
-      subscription.unsubscribe();
-    };
   }, [user?.id]);
 
   const loadNotifications = async () => {
@@ -69,52 +77,61 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const setupRealtimeSubscription = () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.log('🔍 No user ID available for real-time subscription');
+      return;
+    }
 
-    const subscription = supabase
-      .channel('notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('Notification change received:', payload);
-          
-          if (payload.eventType === 'INSERT') {
-            const newNotification: Notification = {
-              id: payload.new.id,
-              userId: payload.new.user_id,
-              type: payload.new.type as any,
-              title: payload.new.title,
-              message: payload.new.message,
-              read: payload.new.read,
-              createdAt: new Date(payload.new.created_at),
-              actionUrl: payload.new.action_url,
-              metadata: payload.new.metadata || {}
-            };
-            setNotifications(prev => [newNotification, ...prev]);
-          } else if (payload.eventType === 'UPDATE') {
-            setNotifications(prev => 
-              prev.map(n => 
-                n.id === payload.new.id 
-                  ? { ...n, read: payload.new.read, metadata: payload.new.metadata || {} }
-                  : n
-              )
-            );
-          } else if (payload.eventType === 'DELETE') {
-            setNotifications(prev => 
-              prev.filter(n => n.id !== payload.old.id)
-            );
-          }
+    console.log('🔍 Setting up real-time subscription for user:', user.id);
+
+    // Use the enhanced realtime service
+    const subscription = realtimeNotificationService.subscribeToUserNotifications(user.id, (payload) => {
+      console.log('🔔 Real-time notification received:', payload);
+      
+      if (payload.eventType === 'INSERT') {
+        const newNotification: Notification = {
+          id: payload.new.id,
+          userId: payload.new.user_id,
+          type: payload.new.type as any,
+          title: payload.new.title,
+          message: payload.new.message,
+          read: payload.new.read,
+          createdAt: new Date(payload.new.created_at),
+          actionUrl: payload.new.action_url,
+          metadata: payload.new.metadata || {}
+        };
+        console.log('🔔 Adding new notification to state:', newNotification);
+        setNotifications(prev => [newNotification, ...prev]);
+        
+        // Show browser notification if permission is granted
+        if (Notification.permission === 'granted') {
+          new Notification(newNotification.title, {
+            body: newNotification.message,
+            icon: '/favicon.ico'
+          });
         }
-      )
-      .subscribe();
+      } else if (payload.eventType === 'UPDATE') {
+        console.log('🔔 Updating notification:', payload.new.id);
+        setNotifications(prev => 
+          prev.map(n => 
+            n.id === payload.new.id 
+              ? { ...n, read: payload.new.read, metadata: payload.new.metadata || {} }
+              : n
+          )
+        );
+      } else if (payload.eventType === 'DELETE') {
+        console.log('🔔 Deleting notification:', payload.old.id);
+        setNotifications(prev => 
+          prev.filter(n => n.id !== payload.old.id)
+        );
+      }
+    });
 
-    return subscription;
+    if (!subscription) {
+      console.warn('⚠️ Failed to set up real-time subscription');
+    } else {
+      console.log('✅ Real-time subscription established');
+    }
   };
 
   const markAsRead = async (id: string) => {
@@ -160,6 +177,24 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     await loadNotifications();
   };
 
+  const requestNotificationPermission = async (): Promise<boolean> => {
+    if (!('Notification' in window)) {
+      console.log('This browser does not support notifications');
+      return false;
+    }
+
+    if (Notification.permission === 'granted') {
+      return true;
+    }
+
+    if (Notification.permission !== 'denied') {
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
+    }
+
+    return false;
+  };
+
   const value = {
     notifications,
     unreadCount,
@@ -168,6 +203,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     markAllAsRead,
     deleteNotification,
     refreshNotifications,
+    requestNotificationPermission,
   };
 
   return (

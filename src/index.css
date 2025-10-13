@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent unwanted horizontal scrolling on mobile */
+html, body, #root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Optional: hide default scrollbar for horizontal quick actions while keeping scroll */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
 /* Jeeva.AI Design System - Healthcare focused color palette
 All colors MUST be HSL for consistency.
 */
@@ -144,4 +159,15 @@ All colors MUST be HSL for consistency.
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Safari and Chrome */
+}
+
+/* Animated Gradient Button - Color Only */
+.gradient-button {
+  background: linear-gradient(to right, #0096ff, #00a0ff, #00b4ff, #00c8ff) !important;
+  background-size: 300% 100% !important;
+  transition: background-position 0.4s ease-in-out !important;
+}
+
+.gradient-button:hover {
+  background-position: right center !important;
 }

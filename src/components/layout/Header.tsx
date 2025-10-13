@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Heart, LogOut, User, Settings } from 'lucide-react';
+import { Heart, LogOut, User, Settings, Menu } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,18 +28,38 @@ export const Header: React.FC = () => {
 
   return (
     <header className="bg-card border-b border-border shadow-soft">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="px-4 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-3 min-w-0" style={{ width: 64 }}>
+          {/* Hamburger placed before logo */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mr-1 lg:ml-1"
+            onClick={() => {
+              // On small screens, slide the mobile drawer; on desktop, toggle collapse
+              if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                const el = document.getElementById('mobile-sidebar');
+                if (el) {
+                  el.classList.toggle('translate-x-0');
+                }
+              } else {
+                window.dispatchEvent(new Event('sidebar-toggle'));
+              }
+            }}
+            aria-label="Toggle menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
           <div className="p-2 bg-hero-gradient rounded-lg">
             <Heart className="h-6 w-6 text-white" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Jeeva.AI</h1>
-            <p className="text-xs text-muted-foreground">Health Management Platform</p>
+          <div className="flex flex-col justify-center leading-none">
+            <h1 className="text-base sm:text-xl font-bold text-foreground whitespace-nowrap truncate max-w-[200px] sm:max-w-none">Jeeva.AI</h1>
+            <p className="hidden md:block text-[11px] text-muted-foreground leading-tight">Health Management Platform</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           {/* Notifications */}
           <NotificationDropdown />
 
@@ -52,8 +72,8 @@ export const Header: React.FC = () => {
                     {getInitials(user?.name || 'U')}
                   </AvatarFallback>
                 </Avatar>
-                <div className="text-left">
-                  <p className="text-sm font-medium">{user?.role === 'doctor' ? `Dr. ${user?.name}` : user?.name}</p>
+                <div className="text-left hidden sm:block">
+                  <p className="text-sm font-medium truncate max-w-[160px]">{user?.role === 'doctor' ? `Dr. ${user?.name}` : user?.name}</p>
                   <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
                 </div>
               </Button>

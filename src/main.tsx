@@ -36,14 +36,14 @@ if (typeof window !== "undefined" && import.meta.env.DEV) {
   sessionStorage.clear();
   console.log('🗑️ Cleared sessionStorage');
   
-  // 5. Force reload if this is not the first load
-  if (performance.navigation.type === 1) { // Navigation type 1 = reload
-    console.log('🔄 This is a reload, clearing everything...');
-    // Clear everything and reload
-    setTimeout(() => {
-      window.location.reload();
-    }, 100);
-  }
+  // 5. Force reload if this is not the first load - DISABLED to prevent infinite reload
+  // if (performance.navigation.type === 1) { // Navigation type 1 = reload
+  //   console.log('🔄 This is a reload, clearing everything...');
+  //   // Clear everything and reload
+  //   setTimeout(() => {
+  //     window.location.reload();
+  //   }, 100);
+  // }
   
   console.log('✅ Cache clearing completed');
 }

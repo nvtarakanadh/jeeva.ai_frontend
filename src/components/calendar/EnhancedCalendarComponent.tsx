@@ -165,14 +165,14 @@ const EnhancedCalendarComponent: React.FC<EnhancedCalendarComponentProps> = memo
           <div
             key={cellDate.toString()}
             className={`
-              min-h-[120px] p-2 border border-gray-200 cursor-pointer hover:bg-gray-50
+              calendar-day min-h-[90px] md:min-h-[120px] p-2 md:p-3 border border-gray-200 cursor-pointer hover:bg-gray-50
               ${isCurrentMonth ? 'bg-white' : 'bg-gray-50 text-gray-400'}
               ${isToday ? 'ring-2 ring-blue-500' : ''}
             `}
             onClick={() => onDateClick(cellDate)}
           >
             <div className="flex items-center justify-between mb-1">
-              <span className={`text-sm font-medium ${isToday ? 'text-blue-600' : ''}`}>
+              <span className={`text-xs md:text-sm font-medium ${isToday ? 'text-blue-600' : ''}`}>
                 {format(cellDate, dateFormat)}
               </span>
               <div className="flex gap-1">
@@ -199,7 +199,7 @@ const EnhancedCalendarComponent: React.FC<EnhancedCalendarComponentProps> = memo
                   <div
                     key={event.id}
                     className={`
-                      text-xs p-1 rounded border cursor-pointer
+                      text-[10px] md:text-xs p-1 rounded border cursor-pointer
                       ${colorClass}
                     `}
                     onClick={(e) => {
@@ -413,15 +413,19 @@ const EnhancedCalendarComponent: React.FC<EnhancedCalendarComponentProps> = memo
       <CardContent className="p-0">
         <div className="border-t">
           {view === 'month' ? (
-            <div className="space-y-0">
-              <div className="grid grid-cols-7 bg-gray-50 border-b">
+            <div className="space-y-0 overflow-x-auto">
+              {/* Days of week header */}
+              <div className="grid grid-cols-7 bg-gray-50 border-b min-w-[700px] md:min-w-0">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="p-3 text-center text-sm font-medium text-gray-700">
+                  <div key={day} className="p-2 md:p-3 text-center text-xs md:text-sm font-medium text-gray-700">
                     {day}
                   </div>
                 ))}
             </div>
-              <div className="min-h-[400px]">
+              {/* Month grid */}
+              <div className="min-h-[320px] md:min-h-[400px] min-w-[700px] md:min-w-0">
+                {/* Ensure date cell sizing scales on small screens */}
+                <div className="[&_.calendar-day]:min-h-[90px] md:[&_.calendar-day]:min-h-[120px]" />
                 {renderMonthView}
               </div>
             </div>

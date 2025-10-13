@@ -22,6 +22,7 @@ import AIAnalysisModal from '@/components/ai/AIAnalysisModal';
 
 interface Patient {
   id: string;
+  userId: string;
   name: string;
   email: string;
   age: number;
@@ -35,6 +36,7 @@ interface Patient {
 interface PatientRecord {
   id: string;
   patientId: string;
+  userId: string;
   patientName: string;
   patientEmail: string;
   recordType: 'health_record' | 'prescription' | 'consultation_note';
@@ -94,6 +96,7 @@ const DoctorPatients = memo(() => {
     description?: string;
     fileUrl?: string;
     fileName?: string;
+    userId?: string;
   } | null>(null);
 
   // Debounce search term to prevent excessive re-renders
@@ -104,6 +107,91 @@ const DoctorPatients = memo(() => {
 
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Add debugging functions for doctor side
+  (window as any).debugDoctorAI = async () => {
+    console.log('🔍 === DOCTOR AI DEBUGGING ===');
+    
+    try {
+      // Get current user (doctor)
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('👨‍⚕️ Current doctor user:', user?.id, user?.email);
+      
+      // Get all AI insights
+      const { data: allInsights, error: insightsError } = await supabase
+        .from('ai_insights')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      console.log('📊 Total AI insights:', allInsights?.length || 0);
+      if (allInsights && allInsights.length > 0) {
+        console.log('📋 AI insights data:', allInsights);
+        console.log('🔍 User IDs in insights:', [...new Set(allInsights.map(i => i.user_id))]);
+        console.log('🔍 Record IDs in insights:', [...new Set(allInsights.map(i => i.record_id))]);
+      }
+      
+      // Get all health records
+      const { data: allRecords, error: recordsError } = await supabase
+        .from('health_records')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      console.log('📊 Total health records:', allRecords?.length || 0);
+      if (allRecords && allRecords.length > 0) {
+        console.log('📋 Health records data:', allRecords);
+        console.log('🔍 User IDs in records:', [...new Set(allRecords.map(r => r.user_id))]);
+        console.log('🔍 Record IDs in records:', [...new Set(allRecords.map(r => r.id))]);
+      }
+      
+      return {
+        doctorId: user?.id,
+        insights: allInsights,
+        records: allRecords
+      };
+      
+    } catch (error) {
+      console.error('❌ Doctor debug error:', error);
+      return { error };
+    }
+  };
+
+  // Add function to test AI insights for specific patient
+  (window as any).testPatientAI = async (patientId: string) => {
+    console.log('🔍 Testing AI insights for patient:', patientId);
+    
+    try {
+      const { data: insights, error } = await supabase
+        .from('ai_insights')
+        .select('*')
+        .eq('user_id', patientId)
+        .order('created_at', { ascending: false });
+      
+      console.log('📊 AI insights for patient', patientId, ':', insights?.length || 0);
+      console.log('📋 Patient insights data:', insights);
+      
+      return insights;
+    } catch (error) {
+      console.error('❌ Error testing patient AI:', error);
+      return null;
+    }
+  };
+
+  // Test AI insights for the current selected patient
+  (window as any).testCurrentPatientAI = async () => {
+    if (selectedPatient) {
+      console.log('🔍 Testing AI insights for current selected patient:', selectedPatient);
+      // Find the user ID for the selected patient
+      const patient = patients.find(p => p.id === selectedPatient);
+      if (patient) {
+        console.log('🔍 Patient profile ID:', patient.id, 'User ID:', patient.userId);
+        await (window as any).testPatientAI(patient.userId);
+      } else {
+        console.log('❌ Selected patient not found in patients list');
+      }
+    } else {
+      console.log('❌ No patient selected');
+    }
+  };
 
   // DATABASE FETCH - SUPABASE
   useEffect(() => {
@@ -191,6 +279,7 @@ const DoctorPatients = memo(() => {
 
             return {
               id: profile.id,
+              userId: profile.user_id,
               name: profile.full_name || 'Unknown Patient',
               email: profile.email || '',
               age: profile.date_of_birth ? 
@@ -203,7 +292,7 @@ const DoctorPatients = memo(() => {
             };
           });
           
-          console.log('Loaded patients:', patientData.map(p => ({ id: p.id, name: p.name, recordCount: p.recordCount })));
+          console.log('Loaded patients:', patientData.map(p => ({ id: p.id, userId: p.userId, name: p.name, recordCount: p.recordCount })));
           setPatients(patientData);
         } else {
           console.log('No patient profiles found');
@@ -337,6 +426,7 @@ const DoctorPatients = memo(() => {
         allRecords.push({
           id: record.id,
           patientId: patientId,
+          userId: patientProfile.user_id,
           patientName: patientProfile.full_name || 'Unknown Patient',
           patientEmail: patientProfile.email || '',
           recordType: 'health_record',
@@ -356,6 +446,7 @@ const DoctorPatients = memo(() => {
         allRecords.push({
           id: prescription.id,
           patientId: patientId,
+          userId: patientProfile.user_id,
           patientName: patientProfile.full_name || 'Unknown Patient',
           patientEmail: patientProfile.email || '',
           recordType: 'prescription',
@@ -379,6 +470,7 @@ const DoctorPatients = memo(() => {
         allRecords.push({
           id: note.id,
           patientId: patientId,
+          userId: patientProfile.user_id,
           patientName: patientProfile.full_name || 'Unknown Patient',
           patientEmail: patientProfile.email || '',
           recordType: 'consultation_note',
@@ -503,7 +595,8 @@ const DoctorPatients = memo(() => {
       type: record.recordType,
       description: record.description,
       fileUrl: record.fileUrl,
-      fileName: record.fileName
+      fileName: record.fileName,
+      userId: record.userId
     });
     setIsAIModalOpen(true);
   };
@@ -1550,7 +1643,7 @@ const DoctorPatients = memo(() => {
                                     )}
                                   </div>
                                 </div>
-                                <CardDescription>
+                                <div className="text-sm text-muted-foreground">
                                   <div className="flex items-center space-x-4 text-sm">
                                     <div className="flex items-center space-x-1">
                                       <User className="h-4 w-4" />
@@ -1567,7 +1660,7 @@ const DoctorPatients = memo(() => {
                                       </div>
                                     )}
                                   </div>
-                                </CardDescription>
+                                </div>
                               </CardHeader>
                               <CardContent>
                                 <p className="text-sm text-muted-foreground line-clamp-3">
@@ -1601,6 +1694,7 @@ const DoctorPatients = memo(() => {
           recordDescription={selectedRecordForAI.description}
           fileUrl={selectedRecordForAI.fileUrl}
           fileName={selectedRecordForAI.fileName}
+          patientId={selectedRecordForAI.userId}
         />
       )}
     </div>

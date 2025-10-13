@@ -1,5 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
-import { createConsultationNoteNotification, createConsultationBookedNotification } from './notificationService';
+import { 
+  createConsultationNoteNotification, 
+  createConsultationBookedNotification,
+  createConsultationUpdatedNotification,
+  createConsultationUpdatedForDoctorNotification
+} from './notificationService';
 
 export interface Consultation {
   id: string;
@@ -156,17 +161,39 @@ export const updateConsultationStatus = async (
         *,
         patient:profiles!consultations_patient_id_fkey (
           full_name,
-          email
+          email,
+          user_id
         ),
         doctor:profiles!consultations_doctor_id_fkey (
           full_name,
           specialization,
-          hospital_affiliation
+          hospital_affiliation,
+          user_id
         )
       `)
       .single();
 
     if (error) throw error;
+
+    // Send notifications for consultation updates
+    if (data.patient?.user_id && data.doctor?.user_id) {
+      // Notify patient about consultation update
+      await createConsultationUpdatedNotification(
+        data.patient.user_id,
+        data.patient_id,
+        data.doctor.full_name,
+        data.consultation_date
+      );
+
+      // Notify doctor about consultation update
+      await createConsultationUpdatedForDoctorNotification(
+        data.doctor.user_id,
+        data.doctor_id,
+        data.patient.full_name,
+        data.consultation_date
+      );
+    }
+
     return data;
   } catch (error) {
     console.error('Error updating consultation status:', error);

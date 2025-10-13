@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Users, Clock, CheckCircle, Calendar, Plus, Activity, Stethoscope, Brief
 import { useNavigate } from 'react-router-dom';
 import { format, addMinutes } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
-import { getUltraOptimizedDashboardStats, getUltraOptimizedRecentActivity, getUltraOptimizedUpcomingTasks, clearUltraOptimizedCache } from '@/services/ultraOptimizedDashboardService';
+import { getSimpleDashboardStats, getSimpleRecentActivity, getSimpleUpcomingTasks } from '@/services/simpleDashboardService';
 import { type DashboardStats, type RecentActivity, type UpcomingTask } from '@/services/dashboardService';
 import { dataPrefetchService } from '@/services/dataPrefetchService';
 import { ScheduleService, type CalendarEvent } from '@/services/scheduleService';
@@ -19,6 +19,7 @@ import { lazy, Suspense } from 'react';
 import EnhancedCalendarComponent from '@/components/calendar/EnhancedCalendarComponent';
 import DoctorSchedulingModal, { DoctorScheduleData } from '@/components/calendar/DoctorSchedulingModal';
 import DayViewModal from '@/components/calendar/DayViewModal';
+import { useLoadingState } from '@/hooks/useLoadingState';
 
 const CalendarComponent = lazy(() => import('@/components/calendar/CalendarComponent'));
 const CalendarSkeleton = lazy(() => import('@/components/calendar/CalendarSkeleton'));
@@ -26,7 +27,7 @@ import SchedulingModal, { ScheduleData } from '@/components/calendar/SchedulingM
 import MeetingDetailsModal from '@/components/calendar/MeetingDetailsModal';
 
 const DoctorDashboard = () => {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     totalPatients: 0,
@@ -36,7 +37,12 @@ const DoctorDashboard = () => {
   });
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [upcomingTasks, setUpcomingTasks] = useState<UpcomingTask[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading, setLoading, error, setError, reset } = useLoadingState({
+    initialLoading: true,
+    resetOnLocationChange: true,
+    debounceMs: 500 // Increased debounce to prevent flickering
+  });
+  
   const [doctorProfileId, setDoctorProfileId] = useState<string | null>(null);
   
   // Calendar and Schedule states
@@ -56,9 +62,14 @@ const DoctorDashboard = () => {
   // Get doctor profile ID once
   useEffect(() => {
     const getDoctorProfileId = async () => {
-      if (!user) return;
+      console.log('🔍 Getting doctor profile ID, user:', user);
+      if (!user) {
+        console.log('❌ No user found');
+        return;
+      }
       
       try {
+        console.log('📡 Querying Supabase for doctor profile...');
         const { data: doctorProfile, error } = await supabase
           .from('profiles')
           .select('id')
@@ -66,20 +77,32 @@ const DoctorDashboard = () => {
           .single();
 
         if (error || !doctorProfile) {
-          console.error('Error finding doctor profile:', error);
+          console.error('❌ Error finding doctor profile:', error);
+          console.log('⚠️ Will show fallback data instead');
           setLoading(false);
           return;
         }
 
+        console.log('✅ Found doctor profile ID:', doctorProfile.id);
         setDoctorProfileId(doctorProfile.id);
       } catch (error) {
-        console.error('Error getting doctor profile:', error);
+        console.error('❌ Error getting doctor profile:', error);
+        console.log('⚠️ Will show fallback data instead');
         setLoading(false);
       }
     };
 
     getDoctorProfileId();
   }, [user]);
+
+  // Debug component mounting/unmounting
+  useEffect(() => {
+    console.log('🔄 Dashboard component mounted');
+    
+    return () => {
+      console.log('🔄 Dashboard component unmounting');
+    };
+  }, []);
 
   // Load events for calendar with memoization
   const loadEvents = useCallback(async () => {
@@ -612,52 +635,89 @@ const DoctorDashboard = () => {
 
   // Load all dashboard data when profile ID is available
   useEffect(() => {
-    let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
     
     const loadAllData = async () => {
-      if (!doctorProfileId) return;
+      console.log('🔄 Loading dashboard data, doctorProfileId:', doctorProfileId);
+      
+      // If no doctorProfileId, wait for it to be loaded
+      if (!doctorProfileId) {
+        console.log('⚠️ No doctorProfileId yet, waiting...');
+        return;
+      }
 
       try {
         setLoading(true);
+        console.log('⏳ Starting data loading...');
         
-        // Load all data in parallel for better performance
-        const [statsData, activityData, tasksData] = await Promise.all([
-          getUltraOptimizedDashboardStats(doctorProfileId),
-          getUltraOptimizedRecentActivity(doctorProfileId),
-          getUltraOptimizedUpcomingTasks(doctorProfileId)
+        // Set a timeout to show data after 5 seconds even if queries are slow
+        timeoutId = setTimeout(() => {
+          console.log('⏰ Data loading timeout, showing basic data');
+          setStats({ totalPatients: 0, pendingConsents: 0, activeConsents: 0, totalRecords: 0 });
+          setRecentActivity([]);
+          setUpcomingTasks([]);
+          setLoading(false);
+        }, 5000);
+        
+        // Load all data in parallel using simple service
+        console.log('📊 Starting to load data with simple service...');
+        const [statsData, activityData, tasksData] = await Promise.allSettled([
+          getSimpleDashboardStats(doctorProfileId),
+          getSimpleRecentActivity(doctorProfileId),
+          getSimpleUpcomingTasks(doctorProfileId)
         ]);
 
-        // Only update state if component is still mounted
-        if (isMounted) {
-        setStats(statsData);
-        setRecentActivity(activityData);
-        setUpcomingTasks(tasksData);
+        console.log('📊 Data loading completed');
+        console.log('📊 Stats data:', statsData);
+        console.log('📊 Activity data:', activityData);
+        console.log('📊 Tasks data:', tasksData);
+
+        // Clear timeout since we got data
+        clearTimeout(timeoutId);
+
+        // Update state with results
+        console.log('✅ Updating state with loaded data');
+        setStats(statsData.status === 'fulfilled' ? statsData.value : { totalPatients: 0, pendingConsents: 0, activeConsents: 0, totalRecords: 0 });
+        setRecentActivity(activityData.status === 'fulfilled' ? activityData.value : []);
+        setUpcomingTasks(tasksData.status === 'fulfilled' ? tasksData.value : []);
         
-        // Load events and patients
-        await Promise.all([
-          loadEvents(),
-          loadPatients()
-        ]);
+        // Load events and patients with error handling
+        try {
+          await Promise.allSettled([
+            loadEvents().catch(err => console.warn('Events loading failed:', err)),
+            loadPatients().catch(err => console.warn('Patients loading failed:', err))
+          ]);
+        } catch (err) {
+          console.warn('Some data loading failed:', err);
+        }
         
-        // Prefetch data for other pages in the background
-        dataPrefetchService.prefetchDoctorDashboardData(doctorProfileId);
+        // Prefetch data for other pages in the background (don't block on this)
+        try {
+          dataPrefetchService.prefetchDoctorDashboardData(doctorProfileId);
+        } catch (err) {
+          console.warn('Prefetch failed:', err);
         }
       } catch (error) {
         console.error('Error loading dashboard data:', error);
+        clearTimeout(timeoutId);
+        // Set empty data on error
+        setStats({ totalPatients: 0, pendingConsents: 0, activeConsents: 0, totalRecords: 0 });
+        setRecentActivity([]);
+        setUpcomingTasks([]);
       } finally {
-        if (isMounted) {
         setLoading(false);
-        }
       }
     };
 
     loadAllData();
     
-    // Cleanup function
+    // Cleanup timeout on unmount
     return () => {
-      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
-  }, [doctorProfileId, loadEvents, loadPatients]);
+  }, [doctorProfileId]);
 
   // Real-time subscription for consultations
   useEffect(() => {
@@ -701,7 +761,7 @@ const DoctorDashboard = () => {
         supabase.removeChannel(subscription);
       }
     };
-  }, [doctorProfileId, loadEvents]);
+  }, [doctorProfileId]);
 
   // Memoize quick stats to prevent unnecessary re-renders
   const quickStats = useMemo(() => [
@@ -813,10 +873,84 @@ const DoctorDashboard = () => {
       {/* Quick Actions */}
       <QuickActions />
 
+
       <div>
         <h1 className="text-3xl font-bold">Welcome back, Dr. {user?.name}</h1>
         <p className="text-muted-foreground">Here's your practice overview</p>
       </div>
+
+      {/* Doctor Profile (inline quick editor) - temporarily hidden per request */}
+      {false && user?.role === 'doctor' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>My Profile</CardTitle>
+            <CardDescription>Update your professional details</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Specialization</label>
+                <input
+                  className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                  defaultValue={(user as any).specialization || ''}
+                  onBlur={async (e) => {
+                    const value = e.currentTarget.value.trim();
+                    if (value && value !== (user as any).specialization) {
+                      await updateProfile({ specialization: value } as any);
+                    }
+                  }}
+                  placeholder="e.g., Cardiology"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Qualifications</label>
+                <input
+                  className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                  defaultValue={(user as any).qualifications || ''}
+                  onBlur={async (e) => {
+                    const value = e.currentTarget.value.trim();
+                    if (value !== (user as any).qualifications) {
+                      await updateProfile({ qualifications: value } as any);
+                    }
+                  }}
+                  placeholder="e.g., MBBS, MD"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Years of Experience</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                  defaultValue={(user as any).yearsOfExperience || ''}
+                  onBlur={async (e) => {
+                    const value = e.currentTarget.value;
+                    const n = value === '' ? undefined : Number(value);
+                    if (n !== (user as any).yearsOfExperience) {
+                      await updateProfile({ yearsOfExperience: n } as any);
+                    }
+                  }}
+                  placeholder="e.g., 8"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Hospital Affiliation</label>
+                <input
+                  className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
+                  defaultValue={(user as any).hospitalAffiliation || ''}
+                  onBlur={async (e) => {
+                    const value = e.currentTarget.value.trim();
+                    if (value !== (user as any).hospitalAffiliation) {
+                      await updateProfile({ hospitalAffiliation: value } as any);
+                    }
+                  }}
+                  placeholder="e.g., City General Hospital"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -840,7 +974,7 @@ const DoctorDashboard = () => {
 
 
       {/* Enhanced Calendar Section */}
-      <div data-calendar-section>
+      <div data-calendar-section className="overflow-x-auto">
         <Suspense fallback={<div className="animate-pulse bg-gray-200 h-96 rounded-lg"></div>}>
           {loading || isDataLoading ? (
             <CalendarSkeleton />

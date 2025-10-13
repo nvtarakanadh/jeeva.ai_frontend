@@ -227,7 +227,7 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[85vh] overflow-hidden p-0 bg-white shadow-2xl">
+      <DialogContent className="max-w-[95vw] md:max-w-6xl max-h-[90vh] overflow-hidden p-0 bg-white shadow-2xl">
         {/* Clean Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center gap-3">
@@ -334,7 +334,7 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
                     {timeSlots.map((slot, index) => (
                       <div
                         key={index}
-                        className="flex-shrink-0 w-20 text-center text-sm text-gray-700 font-semibold"
+                        className="flex-shrink-0 w-20 text-center text-xs md:text-sm text-gray-700 font-semibold"
                       >
                         {slot.display}
                       </div>
@@ -362,8 +362,9 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
                         const eventStartMinutes = event.start.getHours() * 60 + event.start.getMinutes();
                         const slotStartMinutes = slot.time.getHours() * 60 + slot.time.getMinutes();
                         const eventDuration = (event.end.getTime() - event.start.getTime()) / (1000 * 60);
-                        const eventWidth = Math.max((eventDuration / 30) * 80, 80);
-                        const leftOffset = ((eventStartMinutes - slotStartMinutes) / 30) * 80;
+                        const unit = 80; // px per 30m
+                        const eventWidth = Math.max((eventDuration / 30) * unit, unit);
+                        const leftOffset = ((eventStartMinutes - slotStartMinutes) / 30) * unit;
                         
                         return (
                           <div
