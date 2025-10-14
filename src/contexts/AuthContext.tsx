@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { Patient, Doctor, UserRole } from '@/types';
@@ -24,406 +24,192 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    let isInitialized = false;
+  // Create user data from session
+  const createUserFromSession = (session: Session, profile?: any) => {
+    const role = profile?.role || (session.user.user_metadata?.role as UserRole) || 'patient';
     
-    // Get initial session
-    const getInitialSession = async () => {
-      if (isInitialized) return;
-      isInitialized = true;
-      
+    return {
+      id: session.user.id,
+      name: profile?.full_name || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+      email: profile?.email || session.user.email || '',
+      phone: profile?.phone || '',
+      role,
+      dateOfBirth: profile?.date_of_birth ? new Date(profile.date_of_birth) : undefined,
+      gender: profile?.gender || undefined,
+      bloodGroup: profile?.blood_group || undefined,
+      allergies: profile?.allergies ? (typeof profile.allergies === 'string' ? JSON.parse(profile.allergies) : profile.allergies) : [],
+      emergencyContact: profile?.emergency_contact_name ? {
+        name: profile.emergency_contact_name,
+        phone: profile.emergency_contact_phone || '',
+        relationship: profile.emergency_contact_relationship || ''
+      } : undefined,
+      ...(role === 'doctor' ? {
+        specialization: profile?.specialization || 'General Medicine',
+        licenseNumber: profile?.license_number || undefined,
+        hospitalAffiliation: profile?.hospital_affiliation || 'General Hospital',
+        verified: profile?.verified || false
+      } : {}),
+      createdAt: new Date(session.user.created_at),
+      updatedAt: new Date(session.user.updated_at),
+    } as (Patient | Doctor) & { id: string };
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
       try {
-        // Check localStorage first for cached session
-        const cachedSession = localStorage.getItem('supabase.auth.token');
-        if (cachedSession) {
-          try {
-            const sessionData = JSON.parse(cachedSession);
-            if (sessionData.access_token && sessionData.user) {
-              // Set session from cache
-              setSession({
-                access_token: sessionData.access_token,
-                refresh_token: sessionData.refresh_token,
-                expires_at: sessionData.expires_at,
-                user: sessionData.user
-              } as Session);
-              
-              // Create user data from cached session
-              const role = (sessionData.user.user_metadata?.role as UserRole) || 'patient';
-              const userData = {
-                id: sessionData.user.id,
-                name: sessionData.user.user_metadata?.full_name || sessionData.user.email?.split('@')[0] || 'User',
-                email: sessionData.user.email || '',
-                phone: '',
-                role,
-                dateOfBirth: undefined,
-                gender: undefined,
-                bloodGroup: undefined,
-                allergies: [],
-                emergencyContact: undefined,
-                ...(role === 'doctor' ? {
-                  specialization: 'General Medicine',
-                  licenseNumber: undefined,
-                  hospitalAffiliation: 'General Hospital',
-                  verified: false
-                } : {}),
-                createdAt: new Date(sessionData.user.created_at),
-                updatedAt: new Date(sessionData.user.updated_at),
-              } as (Patient | Doctor) & { id: string };
-              
-              setUser(userData);
-              setIsLoading(false);
-              return;
-            }
-          } catch (e) {
-            console.error('Error parsing cached session:', e);
-            localStorage.removeItem('supabase.auth.token');
-          }
-        }
-        
-        // If no cached session, get from Supabase
+        // Get initial session
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (session?.user) {
+        if (error) {
+          console.error('Session error:', error);
+          if (mounted) {
+            setUser(null);
+            setSession(null);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        if (session?.user && mounted) {
           setSession(session);
-          // Immediately set a minimal user so UI can proceed without waiting for profile
+          
+          // Try to get profile data
           try {
-            const quickRole = (session.user.user_metadata?.role as UserRole) || 'patient';
-            const quickUser = {
-              id: session.user.id,
-              name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-              email: session.user.email || '',
-              phone: '',
-              role: quickRole,
-              createdAt: new Date(session.user.created_at),
-              updatedAt: new Date(session.user.updated_at),
-            } as (Patient | Doctor) & { id: string };
-            setUser(prev => prev ?? quickUser);
-          } catch {}
-          
-          // Fetch user profile from database to get accurate role
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .single();
-          
-          if (profileError) {
-            console.error('Profile fetch error:', profileError);
-          }
-          
-          if (profile) {
-            const role = profile.role as UserRole;
-            const userData = {
-              id: session.user.id,
-              name: profile.full_name || session.user.email?.split('@')[0] || 'User',
-              email: profile.email || session.user.email || '',
-              phone: profile.phone || '',
-              role,
-              dateOfBirth: profile.date_of_birth ? new Date(profile.date_of_birth) : undefined,
-              gender: profile.gender,
-              bloodGroup: profile.blood_group,
-              allergies: profile.allergies ? (typeof profile.allergies === 'string' ? JSON.parse(profile.allergies) : profile.allergies) : [],
-              emergencyContact: profile.emergency_contact_name ? {
-                name: profile.emergency_contact_name,
-                phone: profile.emergency_contact_phone || '',
-                relationship: profile.emergency_contact_relationship || ''
-              } : undefined,
-              ...(role === 'doctor' ? {
-                specialization: profile.specialization || 'General Medicine',
-                licenseNumber: profile.license_number,
-                hospitalAffiliation: profile.hospital_affiliation || 'General Hospital',
-                verified: false
-              } : {}),
-              createdAt: new Date(profile.created_at),
-              updatedAt: new Date(profile.updated_at),
-            } as (Patient | Doctor) & { id: string };
-              
-            setUser(userData);
-          } else {
-            // Fallback to session metadata if profile not found
-            const role = (session.user.user_metadata?.role as UserRole) || 'patient';
-            const userData = {
-              id: session.user.id,
-              name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-              email: session.user.email || '',
-              phone: '',
-              role,
-              dateOfBirth: undefined,
-              gender: undefined,
-              bloodGroup: undefined,
-              allergies: [],
-              emergencyContact: undefined,
-              ...(role === 'doctor' ? {
-                specialization: 'General Medicine',
-                licenseNumber: undefined,
-                hospitalAffiliation: 'General Hospital',
-                verified: false
-              } : {}),
-              createdAt: new Date(session.user.created_at),
-              updatedAt: new Date(session.user.updated_at),
-            } as (Patient | Doctor) & { id: string };
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .single();
             
+            const userData = createUserFromSession(session, profile);
+            setUser(userData);
+          } catch (profileError) {
+            // Fallback to session metadata
+            const userData = createUserFromSession(session);
             setUser(userData);
           }
-        } else {
+        } else if (mounted) {
           setUser(null);
+          setSession(null);
         }
       } catch (error) {
-        console.error('🔧 AuthContext: Error getting initial session', error);
-        setUser(null);
+        console.error('Auth initialization error:', error);
+        if (mounted) {
+          setUser(null);
+          setSession(null);
+        }
       } finally {
-        setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    getInitialSession();
+    initializeAuth();
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state change:', event, session?.user?.id);
         
-        // Handle sign out
+        if (!mounted) return;
+
         if (event === 'SIGNED_OUT') {
           setSession(null);
           setUser(null);
-          localStorage.removeItem('supabase.auth.token');
           setIsLoading(false);
           return;
         }
-        
-        // Handle sign in quickly (set minimal user and navigate)
+
         if (event === 'SIGNED_IN' && session?.user) {
-          try {
-            const quickRole = (session.user.user_metadata?.role as UserRole) || 'patient';
-            const quickUser = {
-              id: session.user.id,
-              name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-              email: session.user.email || '',
-              phone: '',
-              role: quickRole,
-              createdAt: new Date(session.user.created_at),
-              updatedAt: new Date(session.user.updated_at),
-            } as (Patient | Doctor) & { id: string };
-            setUser(quickUser);
-            // Navigate if on auth page
-            try {
-              if (quickRole === 'doctor') {
-                navigate('/doctor/dashboard');
-              } else {
-                navigate('/dashboard');
-              }
-            } catch {}
-          } catch {}
-        }
-        
-        // Handle token refresh
-        if (event === 'TOKEN_REFRESHED' && session) {
           setSession(session);
-          // Update localStorage with new token
-          localStorage.setItem('supabase.auth.token', JSON.stringify({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-            expires_at: session.expires_at,
-            user: session.user
-          }));
-          return;
-        }
-        
-        setSession(session);
-        if (session?.user) {
-          // Cache session data
-          localStorage.setItem('supabase.auth.token', JSON.stringify({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-            expires_at: session.expires_at,
-            user: session.user
-          }));
           
-          // Fetch user profile from database to get accurate role
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .single();
-          
-          if (profileError) {
-            console.error('Profile fetch error during auth change:', profileError);
-          }
-          
-          if (profile) {
-            const role = profile.role as UserRole;
-            const userData = {
-              id: session.user.id,
-              name: profile.full_name || session.user.email?.split('@')[0] || 'User',
-              email: profile.email || session.user.email || '',
-              phone: profile.phone || '',
-              role,
-              dateOfBirth: profile.date_of_birth ? new Date(profile.date_of_birth) : undefined,
-              gender: profile.gender,
-              bloodGroup: profile.blood_group,
-              allergies: profile.allergies ? (typeof profile.allergies === 'string' ? JSON.parse(profile.allergies) : profile.allergies) : [],
-              emergencyContact: profile.emergency_contact_name ? {
-                name: profile.emergency_contact_name,
-                phone: profile.emergency_contact_phone || '',
-                relationship: profile.emergency_contact_relationship || ''
-              } : undefined,
-              ...(role === 'doctor' ? {
-                specialization: profile.specialization || 'General Medicine',
-                licenseNumber: profile.license_number,
-                hospitalAffiliation: profile.hospital_affiliation || 'General Hospital',
-                verified: false
-              } : {}),
-              createdAt: new Date(profile.created_at),
-              updatedAt: new Date(profile.updated_at),
-            } as (Patient | Doctor) & { id: string };
-              
-            setUser(userData);
-          } else {
-            // Fallback to session metadata if profile not found
-            const role = (session.user.user_metadata?.role as UserRole) || 'patient';
-            const userData = {
-              id: session.user.id,
-              name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-              email: session.user.email || '',
-              phone: '',
-              role,
-              dateOfBirth: undefined,
-              gender: undefined,
-              bloodGroup: undefined,
-              allergies: [],
-              emergencyContact: undefined,
-              ...(role === 'doctor' ? {
-                specialization: 'General Medicine',
-                licenseNumber: undefined,
-                hospitalAffiliation: 'General Hospital',
-                verified: false
-              } : {}),
-              createdAt: new Date(session.user.created_at),
-              updatedAt: new Date(session.user.updated_at),
-            } as (Patient | Doctor) & { id: string };
+          try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .single();
             
+            const userData = createUserFromSession(session, profile);
+            setUser(userData);
+            
+            // Navigate based on role
+            const role = userData.role;
+            if (role === 'doctor') {
+              navigate('/doctor/dashboard');
+            } else {
+              navigate('/dashboard');
+            }
+          } catch (profileError) {
+            const userData = createUserFromSession(session);
+            setUser(userData);
+            
+            const role = userData.role;
+            if (role === 'doctor') {
+              navigate('/doctor/dashboard');
+            } else {
+              navigate('/dashboard');
+            }
+          }
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          setSession(session);
+        } else if (session?.user) {
+          setSession(session);
+          
+          try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .single();
+            
+            const userData = createUserFromSession(session, profile);
+            setUser(userData);
+          } catch (profileError) {
+            const userData = createUserFromSession(session);
             setUser(userData);
           }
         } else {
           setUser(null);
-          localStorage.removeItem('supabase.auth.token');
+          setSession(null);
         }
         
-        // Always set loading to false after processing auth state change
         setIsLoading(false);
       }
     );
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [navigate]);
 
   const login = async (email: string, password: string, role?: UserRole) => {
     try {
       setIsLoading(true);
       console.log('🔐 Attempting login for:', email);
       
-      // Use direct HTTP request instead of Supabase client with cache busting
-      const response = await fetch(`https://wgcmusjsuziqjkzuaqkd.supabase.co/auth/v1/token?grant_type=password&_t=${Date.now()}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndnY211c2pzdXppcWprenVhcWtkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5MDA2MjMsImV4cCI6MjA3NDQ3NjYyM30.I-7myV1T0KujlqqcD0nepUU_qvh_7rnQ0GktbNXmmn4',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
-        },
-        body: JSON.stringify({
-          email,
-          password
-        })
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.msg || 'Login failed');
+      if (error) {
+        throw error;
       }
 
-      const authData = await response.json();
-      console.log('✅ Direct auth successful:', authData);
-
-      if (authData.user) {
-        console.log('✅ User found, processing user data...');
+      if (data.user && data.session) {
+        console.log('✅ Login successful:', data.user.id);
         
-        // Get profile data using direct HTTP request with cache busting
-        const profileResponse = await fetch(`https://wgcmusjsuziqjkzuaqkd.supabase.co/rest/v1/profiles?user_id=eq.${authData.user.id}&_t=${Date.now()}`, {
-          headers: {
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndnY211c2pzdXppcWprenVhcWtkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5MDA2MjMsImV4cCI6MjA3NDQ3NjYyM30.I-7myV1T0KujlqqcD0nepUU_qvh_7rnQ0GktbNXmmn4',
-            'Authorization': `Bearer ${authData.access_token}`,
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache'
-          }
-        });
-
-        let profileData = null;
-        if (profileResponse.ok) {
-          const profiles = await profileResponse.json();
-          profileData = profiles[0] || null;
-        }
-
-        // Create basic user data from auth response
-        const userRole = (authData.user.user_metadata?.role as UserRole) || role || 'patient';
-        console.log('🔐 Determined user role:', userRole);
-        
-        const userData = {
-          id: authData.user.id,
-          name: authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0] || 'User',
-          email: authData.user.email || '',
-          phone: profileData?.phone || '',
-          role: userRole,
-          dateOfBirth: profileData?.date_of_birth ? new Date(profileData.date_of_birth) : undefined,
-          gender: profileData?.gender || undefined,
-          bloodGroup: profileData?.blood_group || undefined,
-          allergies: profileData?.allergies || [],
-          emergencyContact: profileData?.emergency_contact_name ? {
-            name: profileData.emergency_contact_name,
-            phone: profileData.emergency_contact_phone || '',
-            relationship: profileData.emergency_contact_relationship || ''
-          } : undefined,
-          ...(userRole === 'doctor' ? {
-            specialization: profileData?.specialization || 'General Medicine',
-            licenseNumber: profileData?.license_number || undefined,
-            hospitalAffiliation: profileData?.hospital_affiliation || 'General Hospital',
-            verified: (profileData as any)?.verified || false
-          } : {}),
-          createdAt: new Date(authData.user.created_at),
-          updatedAt: new Date(authData.user.updated_at),
-        } as (Patient | Doctor) & { id: string };
-        
-        console.log('🔐 Created user data:', userData);
-        setUser(userData);
-        
-        // Store session data
-        localStorage.setItem('supabase.auth.token', JSON.stringify({
-          access_token: authData.access_token,
-          refresh_token: authData.refresh_token,
-          expires_at: authData.expires_at,
-          user: authData.user
-        }));
-        
-        // Navigate based on role
-        console.log('🔐 Navigating to dashboard for role:', userRole);
-        if (userRole === 'doctor') {
-          console.log('🔐 Redirecting to doctor dashboard');
-          navigate('/doctor/dashboard');
-        } else {
-          console.log('🔐 Redirecting to patient dashboard');
-          navigate('/dashboard');
-        }
-
+        // The auth state change listener will handle setting user and navigation
         toast({
           title: "Login successful",
           description: `Welcome back!`,
         });
       } else {
-        console.error('❌ No user data returned from auth');
         throw new Error('No user data returned');
       }
 
@@ -436,7 +222,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
       throw error;
     } finally {
-      console.log('🔐 Login process completed, setting loading to false');
       setIsLoading(false);
     }
   };
@@ -500,27 +285,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
-      // Sign out from Supabase
       await supabase.auth.signOut();
-      
-      // Clear local state
-      setUser(null);
-      setSession(null);
-      localStorage.removeItem('supabase.auth.token');
-      
-      // Navigate to auth page
-      navigate('/auth');
-      
+      // The auth state change listener will handle clearing state and navigation
       toast({
         title: "Logged out successfully",
         description: "You have been logged out of your account.",
       });
     } catch (error) {
       console.error('Logout error:', error);
-      // Still clear local state even if Supabase logout fails
+      // Force clear state if Supabase logout fails
       setUser(null);
       setSession(null);
-      localStorage.removeItem('supabase.auth.token');
       navigate('/auth');
     }
   };
