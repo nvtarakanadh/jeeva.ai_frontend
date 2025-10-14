@@ -530,14 +530,44 @@ const PatientDashboard = () => {
   };
   
   console.log('- window.testBlockingWithRefresh(doctorId, date, time) - Test blocking with fresh data');
+  
+  // Add simple dashboard test function
+  (window as any).testDashboardLoading = async () => {
+    console.log('🧪 Testing dashboard loading...');
+    console.log('Current user:', user);
+    console.log('Current loading state:', loading);
+    console.log('Current health records:', healthRecords);
+    console.log('Current appointments:', appointments);
+    
+    if (user?.id) {
+      console.log('🧪 Testing data fetching...');
+      try {
+        const healthData = await getCachedHealthRecords(user.id);
+        console.log('✅ Health records test:', healthData);
+        
+        const appointmentData = await getCachedAppointments(user.id);
+        console.log('✅ Appointments test:', appointmentData);
+      } catch (error) {
+        console.error('❌ Data fetching test failed:', error);
+      }
+    } else {
+      console.log('❌ No user ID available for testing');
+    }
+  };
+  
+  console.log('- window.testDashboardLoading() - Test dashboard data loading');
 
   useEffect(() => {
     const loadDashboardData = async () => {
-      if (!user?.id || !isMountedRef.current) return;
+      if (!user?.id || !isMountedRef.current) {
+        console.log('❌ Cannot load dashboard data:', { userId: user?.id, mounted: isMountedRef.current });
+        return;
+      }
       
       try {
         setLoading(true);
         console.log('🔄 Loading dashboard data for user:', user.id);
+        console.log('🔄 User object:', user);
         
         // Phase 1: Load critical data first (fast)
         const profileCacheKey = createCacheKey('patient-profile', user.id);
@@ -557,10 +587,12 @@ const PatientDashboard = () => {
         }
 
         // Load critical data in parallel
+        console.log('🔄 Fetching critical data...');
         const [healthRecordsData, appointmentsData] = await Promise.all([
           getCachedHealthRecords(user.id),
           getCachedAppointments(user.id)
         ]);
+        console.log('✅ Critical data fetched:', { healthRecordsData, appointmentsData });
 
         // Set critical data immediately (only if component is still mounted)
         if (isMountedRef.current) {
@@ -704,11 +736,21 @@ const PatientDashboard = () => {
   const getCachedHealthRecords = async (userId: string) => {
     const cacheKey = createCacheKey('health-records', userId);
     const cached = cacheService.get(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      console.log('📋 Using cached health records');
+      return cached;
+    }
     
-    const data = await getHealthRecordSummary(userId);
-    cacheService.set(cacheKey, data, CACHE_TTL.MEDIUM);
-    return data;
+    console.log('📋 Fetching health records from service...');
+    try {
+      const data = await getHealthRecordSummary(userId);
+      console.log('✅ Health records fetched:', data);
+      cacheService.set(cacheKey, data, CACHE_TTL.MEDIUM);
+      return data;
+    } catch (error) {
+      console.error('❌ Error fetching health records:', error);
+      return { totalRecords: 0, recentRecords: [] };
+    }
   };
 
   const getCachedAIInsights = async (userId: string) => {
@@ -802,10 +844,15 @@ const PatientDashboard = () => {
   const getCachedAppointments = async (userId: string) => {
     const cacheKey = createCacheKey('patient-appointments', userId);
     const cached = cacheService.get(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      console.log('📅 Using cached appointments');
+      return cached;
+    }
     
+    console.log('📅 Fetching appointments from database...');
     try {
       // Get patient profile ID first
+      console.log('👤 Fetching patient profile for user:', userId);
       const { data: patientProfile, error: profileError } = await supabase
         .from('profiles')
         .select('id')
@@ -813,9 +860,10 @@ const PatientDashboard = () => {
         .single();
 
       if (profileError || !patientProfile) {
-        console.error('Patient profile not found:', profileError);
+        console.error('❌ Patient profile not found:', profileError);
         return [];
       }
+      console.log('✅ Patient profile found:', patientProfile);
 
           // Fetch consultations using the consultation service
           const { data: consultations, error: consultationError } = await supabase
@@ -1178,8 +1226,15 @@ const PatientDashboard = () => {
   };
 
   if (loading) {
+    console.log('🔄 Dashboard is loading...');
     return <PageSkeleton />;
   }
+
+  console.log('✅ Dashboard loaded, rendering content:', { 
+    user: user?.name, 
+    healthRecords: healthRecords.totalRecords, 
+    appointments: appointments.length 
+  });
 
   return (
     <div className="space-y-6">
