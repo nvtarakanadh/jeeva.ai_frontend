@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { PageSkeleton } from '@/components/ui/skeleton-loading';
 
 interface ProtectedRouteProps {
@@ -15,7 +15,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   fallbackPath = '/auth' 
 }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const navigate = useNavigate();
 
   // Remove logging to prevent unnecessary re-renders
   // const prevState = React.useRef({ isAuthenticated, isLoading, userRole: user?.role });
@@ -27,37 +26,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   //   }
   // }, [isAuthenticated, isLoading, user?.role]);
 
-  // Handle redirects in useEffect with debouncing
-  useEffect(() => {
-    if (isLoading) return; // Don't navigate while loading
-
-    // Debounce navigation to prevent rapid redirects
-    const navigationTimeout = setTimeout(() => {
-      if (!isAuthenticated || !user) {
-        navigate(fallbackPath);
-        return;
-      }
-
-      if (!allowedRoles.includes(user.role)) {
-        
-        // Redirect to appropriate dashboard based on role
-        const correctPath = user.role === 'doctor' ? '/doctor/dashboard' : '/dashboard';
-        navigate(correctPath);
-        return;
-      }
-    }, 100); // Small delay to prevent rapid navigation
-
-    return () => clearTimeout(navigationTimeout);
-  }, [isAuthenticated, isLoading, user, allowedRoles, navigate, fallbackPath]);
-
   // Show loading while checking authentication
   if (isLoading) {
     return <PageSkeleton />;
   }
 
   // Don't render if not authenticated or wrong role
-  if (!isAuthenticated || !user || !allowedRoles.includes(user.role)) {
-    return <PageSkeleton />;
+  if (!isAuthenticated || !user) {
+    return <Navigate to={fallbackPath} replace />;
+  }
+  if (!allowedRoles.includes(user.role)) {
+    const correctPath = user.role === 'doctor' ? '/doctor/dashboard' : '/dashboard';
+    return <Navigate to={correctPath} replace />;
   }
 
   return <>{children}</>;

@@ -89,7 +89,7 @@ const QuickActions = () => {
       id: 'upload-record',
       title: 'Upload Record',
       icon: Upload,
-      href: '/patient/health-records',
+      href: '/records',
       color: 'text-blue-600',
       bgColor: 'bg-blue-50 hover:bg-blue-100',
       gradient: 'from-blue-50 to-blue-100'
@@ -98,7 +98,7 @@ const QuickActions = () => {
       id: 'consent-management',
       title: 'Consent Management',
       icon: Shield,
-      href: '/patient/consent-management',
+      href: '/consents',
       color: 'text-green-600',
       bgColor: 'bg-green-50 hover:bg-green-100',
       gradient: 'from-green-50 to-green-100'
@@ -108,11 +108,14 @@ const QuickActions = () => {
       title: 'Schedule Appointment',
       icon: Calendar,
       onClick: () => {
-        // This will open the scheduling modal
+        // Try to open the scheduling modal if present
         const scheduleButton = document.querySelector('[data-patient-schedule-button]');
         if (scheduleButton) {
           (scheduleButton as HTMLElement).click();
+          return;
         }
+        // Fallback: navigate to appointments/scheduling page
+        navigate('/consultations');
       },
       color: 'text-purple-600',
       bgColor: 'bg-purple-50 hover:bg-purple-100',
@@ -122,7 +125,7 @@ const QuickActions = () => {
       id: 'prescriptions',
       title: 'My Prescriptions',
       icon: Pill,
-      href: '/patient/prescriptions',
+      href: '/prescriptions',
       color: 'text-orange-600',
       bgColor: 'bg-orange-50 hover:bg-orange-100',
       gradient: 'from-orange-50 to-orange-100'
@@ -131,7 +134,7 @@ const QuickActions = () => {
       id: 'consultations',
       title: 'My Consultations',
       icon: Stethoscope,
-      href: '/patient/consultations',
+      href: '/consultations',
       color: 'text-cyan-600',
       bgColor: 'bg-cyan-50 hover:bg-cyan-100',
       gradient: 'from-cyan-50 to-cyan-100'
