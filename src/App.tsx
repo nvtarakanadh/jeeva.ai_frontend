@@ -29,6 +29,7 @@ import PatientPrescriptions from "./pages/patient/Prescriptions";
 import PatientConsultationNotes from "./pages/patient/ConsultationNotes";
 import Auth from "./pages/Auth";
 import MainLayout from "./layouts/MainLayout";
+import AuthDebug from "./components/debug/AuthDebug";
 
 const queryClient = new QueryClient();
 
@@ -59,7 +60,7 @@ const App = () => {
                 <Suspense fallback={<PageSkeleton />}>
                 <Routes>
                         <Route path="/" element={<Index />} />
-                        <Route path="/auth" element={<Auth />} />
+                        <Route path="/auth" element={<><Auth /><AuthDebug /></>} />
                 
                 {/* Patient Routes */}
                 <Route path="/dashboard" element={

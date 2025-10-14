@@ -112,11 +112,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.id);
+        console.log('🔐 Auth state change:', event, session?.user?.id, 'mounted:', mounted);
         
-        if (!mounted) return;
+        if (!mounted) {
+          console.log('🔐 Component unmounted, ignoring auth change');
+          return;
+        }
 
         if (event === 'SIGNED_OUT') {
+          console.log('🔐 User signed out');
           setSession(null);
           setUser(null);
           setIsLoading(false);
@@ -124,6 +128,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         if (event === 'SIGNED_IN' && session?.user) {
+          console.log('🔐 User signed in, processing...');
           setSession(session);
           
           try {
@@ -134,20 +139,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               .single();
             
             const userData = createUserFromSession(session, profile);
+            console.log('🔐 Created user data:', userData);
             setUser(userData);
             
             // Navigate based on role
             const role = userData.role;
+            console.log('🔐 Navigating to dashboard for role:', role);
             if (role === 'doctor') {
               navigate('/doctor/dashboard');
             } else {
               navigate('/dashboard');
             }
           } catch (profileError) {
+            console.log('🔐 Profile fetch failed, using session metadata');
             const userData = createUserFromSession(session);
+            console.log('🔐 Created user data from session:', userData);
             setUser(userData);
             
             const role = userData.role;
+            console.log('🔐 Navigating to dashboard for role:', role);
             if (role === 'doctor') {
               navigate('/doctor/dashboard');
             } else {
@@ -155,8 +165,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
           }
         } else if (event === 'TOKEN_REFRESHED' && session) {
+          console.log('🔐 Token refreshed');
           setSession(session);
         } else if (session?.user) {
+          console.log('🔐 Session exists, updating user data');
           setSession(session);
           
           try {
@@ -173,10 +185,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUser(userData);
           }
         } else {
+          console.log('🔐 No session, clearing user');
           setUser(null);
           setSession(null);
         }
         
+        console.log('🔐 Setting loading to false');
         setIsLoading(false);
       }
     );
@@ -197,12 +211,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         password,
       });
 
+      console.log('🔐 Login response:', { data: !!data, error: !!error, user: !!data?.user, session: !!data?.session });
+
       if (error) {
+        console.error('🔐 Login error:', error);
         throw error;
       }
 
       if (data.user && data.session) {
         console.log('✅ Login successful:', data.user.id);
+        console.log('🔐 Session details:', { 
+          access_token: !!data.session.access_token, 
+          expires_at: data.session.expires_at,
+          user_id: data.session.user.id 
+        });
         
         // The auth state change listener will handle setting user and navigation
         toast({
@@ -210,6 +232,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           description: `Welcome back!`,
         });
       } else {
+        console.error('🔐 No user or session in response:', data);
         throw new Error('No user data returned');
       }
 
@@ -222,6 +245,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
       throw error;
     } finally {
+      console.log('🔐 Login process completed, setting loading to false');
       setIsLoading(false);
     }
   };
