@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { Patient, Doctor, UserRole } from '@/types';
@@ -23,6 +23,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const processingRef = useRef(false);
+  const lastProcessedSession = useRef<string | null>(null);
 
   // Create user data from session
   const createUserFromSession = (session: Session, profile?: any) => {
@@ -124,10 +126,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setSession(null);
           setUser(null);
           setIsLoading(false);
+          processingRef.current = false;
+          lastProcessedSession.current = null;
           return;
         }
 
         if (event === 'SIGNED_IN' && session?.user) {
+          if (processingRef.current || lastProcessedSession.current === session.user.id) {
+            console.log('🔐 Already processing or processed this session, skipping...');
+            return;
+          }
+          
+          processingRef.current = true;
+          lastProcessedSession.current = session.user.id;
           console.log('🔐 User signed in, processing...');
           setSession(session);
           
@@ -163,6 +174,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             } else {
               navigate('/dashboard');
             }
+          } finally {
+            processingRef.current = false;
           }
         } else if (event === 'TOKEN_REFRESHED' && session) {
           console.log('🔐 Token refreshed');
@@ -192,6 +205,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         console.log('🔐 Setting loading to false');
         setIsLoading(false);
+        
+        // Safety timeout to ensure loading is always set to false
+        setTimeout(() => {
+          if (mounted) {
+            console.log('🔐 Safety timeout: forcing loading to false');
+            setIsLoading(false);
+          }
+        }, 5000);
       }
     );
 
