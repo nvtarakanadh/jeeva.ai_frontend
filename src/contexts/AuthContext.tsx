@@ -85,6 +85,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         if (session?.user) {
           setSession(session);
+          // Immediately set a minimal user so UI can proceed without waiting for profile
+          try {
+            const quickRole = (session.user.user_metadata?.role as UserRole) || 'patient';
+            const quickUser = {
+              id: session.user.id,
+              name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+              email: session.user.email || '',
+              phone: '',
+              role: quickRole,
+              createdAt: new Date(session.user.created_at),
+              updatedAt: new Date(session.user.updated_at),
+            } as (Patient | Doctor) & { id: string };
+            setUser(prev => prev ?? quickUser);
+          } catch {}
           
           // Fetch user profile from database to get accurate role
           const { data: profile, error: profileError } = await supabase
@@ -176,6 +190,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           localStorage.removeItem('supabase.auth.token');
           setIsLoading(false);
           return;
+        }
+        
+        // Handle sign in quickly (set minimal user and navigate)
+        if (event === 'SIGNED_IN' && session?.user) {
+          try {
+            const quickRole = (session.user.user_metadata?.role as UserRole) || 'patient';
+            const quickUser = {
+              id: session.user.id,
+              name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
+              email: session.user.email || '',
+              phone: '',
+              role: quickRole,
+              createdAt: new Date(session.user.created_at),
+              updatedAt: new Date(session.user.updated_at),
+            } as (Patient | Doctor) & { id: string };
+            setUser(quickUser);
+            // Navigate if on auth page
+            try {
+              if (quickRole === 'doctor') {
+                navigate('/doctor/dashboard');
+              } else {
+                navigate('/dashboard');
+              }
+            } catch {}
+          } catch {}
         }
         
         // Handle token refresh
