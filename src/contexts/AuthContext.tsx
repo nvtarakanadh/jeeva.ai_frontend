@@ -25,11 +25,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
 
   useEffect(() => {
-    
-    // Remove timeout to prevent unnecessary state changes
-    // Loading will be set to false when auth state is determined
-    
-    // Prevent multiple simultaneous initializations
     let isInitialized = false;
     
     // Get initial session
@@ -38,6 +33,54 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isInitialized = true;
       
       try {
+        // Check localStorage first for cached session
+        const cachedSession = localStorage.getItem('supabase.auth.token');
+        if (cachedSession) {
+          try {
+            const sessionData = JSON.parse(cachedSession);
+            if (sessionData.access_token && sessionData.user) {
+              // Set session from cache
+              setSession({
+                access_token: sessionData.access_token,
+                refresh_token: sessionData.refresh_token,
+                expires_at: sessionData.expires_at,
+                user: sessionData.user
+              } as Session);
+              
+              // Create user data from cached session
+              const role = (sessionData.user.user_metadata?.role as UserRole) || 'patient';
+              const userData = {
+                id: sessionData.user.id,
+                name: sessionData.user.user_metadata?.full_name || sessionData.user.email?.split('@')[0] || 'User',
+                email: sessionData.user.email || '',
+                phone: '',
+                role,
+                dateOfBirth: undefined,
+                gender: undefined,
+                bloodGroup: undefined,
+                allergies: [],
+                emergencyContact: undefined,
+                ...(role === 'doctor' ? {
+                  specialization: 'General Medicine',
+                  licenseNumber: undefined,
+                  hospitalAffiliation: 'General Hospital',
+                  verified: false
+                } : {}),
+                createdAt: new Date(sessionData.user.created_at),
+                updatedAt: new Date(sessionData.user.updated_at),
+              } as (Patient | Doctor) & { id: string };
+              
+              setUser(userData);
+              setIsLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.error('Error parsing cached session:', e);
+            localStorage.removeItem('supabase.auth.token');
+          }
+        }
+        
+        // If no cached session, get from Supabase
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (session?.user) {
@@ -49,7 +92,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .select('*')
             .eq('user_id', session.user.id)
             .single();
-          
           
           if (profileError) {
             console.error('Profile fetch error:', profileError);
@@ -125,29 +167,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.id);
         
-        // Prevent processing if already initialized and it's just a token refresh
-        if (isInitialized && event === 'TOKEN_REFRESHED') {
-          return;
-        }
-        
-        // Prevent multiple rapid state changes
+        // Handle sign out
         if (event === 'SIGNED_OUT') {
           setSession(null);
           setUser(null);
+          localStorage.removeItem('supabase.auth.token');
           setIsLoading(false);
+          return;
+        }
+        
+        // Handle token refresh
+        if (event === 'TOKEN_REFRESHED' && session) {
+          setSession(session);
+          // Update localStorage with new token
+          localStorage.setItem('supabase.auth.token', JSON.stringify({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+            expires_at: session.expires_at,
+            user: session.user
+          }));
           return;
         }
         
         setSession(session);
         if (session?.user) {
+          // Cache session data
+          localStorage.setItem('supabase.auth.token', JSON.stringify({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+            expires_at: session.expires_at,
+            user: session.user
+          }));
+          
           // Fetch user profile from database to get accurate role
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
             .eq('user_id', session.user.id)
             .single();
-          
           
           if (profileError) {
             console.error('Profile fetch error during auth change:', profileError);
@@ -164,7 +223,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               dateOfBirth: profile.date_of_birth ? new Date(profile.date_of_birth) : undefined,
               gender: profile.gender,
               bloodGroup: profile.blood_group,
-              allergies: profile.allergies ? JSON.parse(profile.allergies) : [],
+              allergies: profile.allergies ? (typeof profile.allergies === 'string' ? JSON.parse(profile.allergies) : profile.allergies) : [],
               emergencyContact: profile.emergency_contact_name ? {
                 name: profile.emergency_contact_name,
                 phone: profile.emergency_contact_phone || '',
@@ -209,6 +268,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
         } else {
           setUser(null);
+          localStorage.removeItem('supabase.auth.token');
         }
         
         // Always set loading to false after processing auth state change
@@ -399,11 +459,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    setSession(null);
-    localStorage.removeItem('supabase.auth.token');
-    navigate('/auth');
+  const logout = async () => {
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Clear local state
+      setUser(null);
+      setSession(null);
+      localStorage.removeItem('supabase.auth.token');
+      
+      // Navigate to auth page
+      navigate('/auth');
+      
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still clear local state even if Supabase logout fails
+      setUser(null);
+      setSession(null);
+      localStorage.removeItem('supabase.auth.token');
+      navigate('/auth');
+    }
   };
 
   const updateProfile = async (updates: Partial<Patient | Doctor>) => {
