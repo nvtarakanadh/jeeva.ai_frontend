@@ -4,8 +4,8 @@ export interface BookingRequest {
   id: string;
   patientId: string;
   doctorId: string;
-  patientName: string;
-  patientEmail: string;
+  patientName?: string;
+  patientEmail?: string;
   title: string;
   type: 'consultation' | 'operation' | 'meeting';
   date: string;
@@ -32,23 +32,48 @@ export interface CreateBookingRequest {
 // Create a new booking request
 export const createBookingRequest = async (bookingData: CreateBookingRequest): Promise<BookingRequest> => {
   try {
+    const nowIso = new Date().toISOString();
+    const payload = {
+      patient_id: bookingData.patientId,
+      doctor_id: bookingData.doctorId,
+      title: bookingData.title,
+      type: bookingData.type,
+      date: bookingData.date,
+      time: bookingData.time,
+      duration: bookingData.duration,
+      notes: bookingData.notes ?? null,
+      status: 'pending' as const,
+      requested_at: nowIso,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+
     const { data, error } = await supabase
       .from('booking_requests')
-      .insert([{
-        ...bookingData,
-        status: 'pending',
-        requested_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }])
-      .select()
+      .insert([payload])
+      .select('*')
       .single();
 
     if (error) {
       throw new Error(`Failed to create booking request: ${error.message}`);
     }
 
-    return data;
+    // Normalize to camelCase for the app
+    return {
+      id: data.id,
+      patientId: data.patient_id,
+      doctorId: data.doctor_id,
+      title: data.title,
+      type: data.type,
+      date: data.date,
+      time: data.time,
+      duration: data.duration,
+      notes: data.notes ?? undefined,
+      status: data.status,
+      requestedAt: data.requested_at,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
   } catch (error) {
     console.error('Error creating booking request:', error);
     throw error;
@@ -60,10 +85,7 @@ export const getDoctorBookingRequests = async (doctorId: string): Promise<Bookin
   try {
     const { data, error } = await supabase
       .from('booking_requests')
-      .select(`
-        *,
-        patient:profiles!patient_id(full_name, email)
-      `)
+      .select(`*, patient:profiles!patient_id(full_name, email)`) 
       .eq('doctor_id', doctorId)
       .order('requested_at', { ascending: false });
 
@@ -71,10 +93,22 @@ export const getDoctorBookingRequests = async (doctorId: string): Promise<Bookin
       throw new Error(`Failed to fetch booking requests: ${error.message}`);
     }
 
-    return data.map(booking => ({
-      ...booking,
+    return (data || []).map((booking: any) => ({
+      id: booking.id,
+      patientId: booking.patient_id,
+      doctorId: booking.doctor_id,
+      title: booking.title,
+      type: booking.type,
+      date: booking.date,
+      time: booking.time,
+      duration: booking.duration,
+      notes: booking.notes ?? undefined,
+      status: booking.status,
+      requestedAt: booking.requested_at,
+      createdAt: booking.created_at,
+      updatedAt: booking.updated_at,
       patientName: booking.patient?.full_name || 'Unknown Patient',
-      patientEmail: booking.patient?.email || ''
+      patientEmail: booking.patient?.email || '',
     }));
   } catch (error) {
     console.error('Error fetching doctor booking requests:', error);
@@ -87,10 +121,7 @@ export const getPatientBookingRequests = async (patientId: string): Promise<Book
   try {
     const { data, error } = await supabase
       .from('booking_requests')
-      .select(`
-        *,
-        doctor:profiles!doctor_id(full_name, email)
-      `)
+      .select(`*, doctor:profiles!doctor_id(full_name, email)`) 
       .eq('patient_id', patientId)
       .order('requested_at', { ascending: false });
 
@@ -98,10 +129,22 @@ export const getPatientBookingRequests = async (patientId: string): Promise<Book
       throw new Error(`Failed to fetch booking requests: ${error.message}`);
     }
 
-    return data.map(booking => ({
-      ...booking,
+    return (data || []).map((booking: any) => ({
+      id: booking.id,
+      patientId: booking.patient_id,
+      doctorId: booking.doctor_id,
+      title: booking.title,
+      type: booking.type,
+      date: booking.date,
+      time: booking.time,
+      duration: booking.duration,
+      notes: booking.notes ?? undefined,
+      status: booking.status,
+      requestedAt: booking.requested_at,
+      createdAt: booking.created_at,
+      updatedAt: booking.updated_at,
       patientName: booking.patient?.full_name || 'Unknown Patient',
-      patientEmail: booking.patient?.email || ''
+      patientEmail: booking.patient?.email || '',
     }));
   } catch (error) {
     console.error('Error fetching patient booking requests:', error);
@@ -122,14 +165,28 @@ export const updateBookingStatus = async (
         updated_at: new Date().toISOString()
       })
       .eq('id', bookingId)
-      .select()
+      .select('*')
       .single();
 
     if (error) {
       throw new Error(`Failed to update booking status: ${error.message}`);
     }
 
-    return data;
+    return {
+      id: data.id,
+      patientId: data.patient_id,
+      doctorId: data.doctor_id,
+      title: data.title,
+      type: data.type,
+      date: data.date,
+      time: data.time,
+      duration: data.duration,
+      notes: data.notes ?? undefined,
+      status: data.status,
+      requestedAt: data.requested_at,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
   } catch (error) {
     console.error('Error updating booking status:', error);
     throw error;

@@ -2,13 +2,16 @@
 // This replaces the old complex frontend AI analysis with backend integration
 import { supabase } from '@/integrations/supabase/client';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'http://localhost:8000/api/ai';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'http://127.0.0.1:8000/api/ai';
 
 export interface AIAnalysisResult {
   summary: string;
   keyFindings: string[];
   riskWarnings: string[];
   recommendations: string[];
+  predictiveInsights?: string[];
+  ai_disclaimer?: string;
+  disclaimer?: string;
   confidence: number;
   analysisType?: string;  // Frontend field name
   analysis_type?: string; // Django field name

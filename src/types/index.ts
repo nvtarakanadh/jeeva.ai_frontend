@@ -58,6 +58,9 @@ export interface AIAnalysis {
   keyFindings: string[];
   riskWarnings: string[];
   recommendations: string[];
+  predictiveInsights?: string[];
+  ai_disclaimer?: string;
+  disclaimer?: string;
   confidence: number; // 0-1
   processedAt: Date;
   recordTitle: string;

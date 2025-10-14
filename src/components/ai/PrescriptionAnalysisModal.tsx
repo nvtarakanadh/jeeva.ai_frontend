@@ -282,6 +282,37 @@ export const PrescriptionAnalysisModal: React.FC<PrescriptionAnalysisModalProps>
                         </ul>
                       </div>
                     )}
+
+                    {/* Predictive Insights */}
+                    {analysis.predictiveInsights && analysis.predictiveInsights.length > 0 && (
+                      <div>
+                        <h4 className="font-medium mb-2 flex items-center gap-2 text-blue-600">
+                          <Activity className="h-4 w-4" />
+                          Predictive Insights
+                        </h4>
+                        <ul className="space-y-1">
+                          {analysis.predictiveInsights.map((insight, index) => (
+                            <li key={index} className="text-sm text-blue-700 bg-blue-50 p-2 rounded-md flex items-start gap-2">
+                              <span className="text-blue-600 mt-1">🔮</span>
+                              {insight}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* AI Disclaimer */}
+                    {analysis.ai_disclaimer && (
+                      <div>
+                        <h4 className="font-medium mb-2 flex items-center gap-2 text-orange-600">
+                          <AlertTriangle className="h-4 w-4" />
+                          AI Analysis Disclaimer
+                        </h4>
+                        <div className="text-sm text-orange-700 bg-orange-50 p-3 rounded-md border-l-4 border-orange-200">
+                          {analysis.ai_disclaimer}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
