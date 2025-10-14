@@ -18,17 +18,13 @@ import QuickActions from '@/components/layout/QuickActions';
 import PatientCalendarComponent, { PatientAppointment } from '@/components/calendar/PatientCalendarComponent';
 import PatientSchedulingModal, { PatientScheduleData } from '@/components/calendar/PatientSchedulingModal';
 import DayViewModal, { DayViewEvent } from '@/components/calendar/DayViewModal';
-import { useLoadingState } from '@/hooks/useLoadingState';
 
 const PatientDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  const { loading, setLoading, error, setError, reset } = useLoadingState({
-    initialLoading: true,
-    resetOnLocationChange: true,
-    debounceMs: 100
-  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const isMountedRef = useRef(true);
   const [healthRecords, setHealthRecords] = useState({ totalRecords: 0, recentRecords: [] });
@@ -570,7 +566,10 @@ const PatientDashboard = () => {
         if (isMountedRef.current) {
           setHealthRecords(healthRecordsData as any);
           setAppointments(appointmentsData as any);
-          console.log('✅ Critical data loaded');
+          console.log('✅ Critical data loaded:', { 
+            healthRecords: healthRecordsData, 
+            appointments: appointmentsData 
+          });
         }
 
         // Phase 2: Load secondary data (can be slower)
@@ -606,6 +605,7 @@ const PatientDashboard = () => {
         }
       } finally {
         if (isMountedRef.current) {
+          console.log('🔧 Setting loading to false');
           setLoading(false);
         }
       }
@@ -613,9 +613,18 @@ const PatientDashboard = () => {
 
     loadDashboardData();
     
+    // Safety timeout to ensure loading is always set to false
+    const safetyTimeout = setTimeout(() => {
+      if (isMountedRef.current) {
+        console.log('🔧 Safety timeout: forcing loading to false');
+        setLoading(false);
+      }
+    }, 10000); // 10 seconds timeout
+    
     // Cleanup function
     return () => {
       isMountedRef.current = false;
+      clearTimeout(safetyTimeout);
     };
   }, [user?.id]);
 
