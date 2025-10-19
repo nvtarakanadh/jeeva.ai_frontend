@@ -700,6 +700,7 @@ const DoctorDashboard = () => {
       } catch (error) {
         console.error('Error loading dashboard data:', error);
         clearTimeout(timeoutId);
+        setError('Failed to load dashboard data. Please check your connection and try again.');
         // Set empty data on error
         setStats({ totalPatients: 0, pendingConsents: 0, activeConsents: 0, totalRecords: 0 });
         setRecentActivity([]);
@@ -866,6 +867,48 @@ const DoctorDashboard = () => {
 
   if (loading) {
     return <PageSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+              <Activity className="w-6 h-6 text-red-600" />
+            </div>
+            <CardTitle className="text-xl text-gray-900">Unable to Load Dashboard</CardTitle>
+            <CardDescription className="text-gray-600 mt-2">
+              {error}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-gray-500">
+              <p>This might be due to:</p>
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Network connection issues</li>
+                <li>Backend service unavailable</li>
+                <li>Database connection problems</li>
+              </ul>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => window.location.reload()}
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Retry
+              </button>
+              <button
+                onClick={() => navigate('/')}
+                className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors"
+              >
+                Go Home
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
