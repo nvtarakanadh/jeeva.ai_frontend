@@ -1,0 +1,20 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Heart shape with gradient -->
+  <defs>
+    <linearGradient id="heartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#14b8a6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Heart shape -->
+  <path d="M32 56C32 56 8 36 8 20C8 12.268 14.268 6 22 6C26.418 6 30.436 8.246 32 11.5C33.564 8.246 37.582 6 42 6C49.732 6 56 12.268 56 20C56 36 32 56 32 56Z" fill="url(#heartGradient)"/>
+  
+  <!-- ECG line -->
+  <path d="M16 28L20 28L22 24L24 32L26 20L28 36L30 28L34 28" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- ECG dots -->
+  <circle cx="16" cy="28" r="1" fill="white"/>
+  <circle cx="34" cy="28" r="1" fill="white"/>
+</svg>
+

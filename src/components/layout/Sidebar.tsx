@@ -15,7 +15,16 @@ import {
   FlaskConical,
   Pill,
   Stethoscope,
-  Menu
+  Menu,
+  Building2,
+  Microscope,
+  Heart,
+  Store,
+  IndianRupee,
+  Ticket,
+  Plane,
+  TestTube,
+  Wallet
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -43,6 +52,18 @@ const patientNavItems: NavItem[] = [
   { label: 'Share Data', icon: Hospital, href: '/share-data', roles: ['patient'] },
 ];
 
+const comingSoonNavItems: NavItem[] = [
+  { label: 'Vendors', icon: Building2, href: '/vendors', roles: ['patient'] },
+  { label: 'Medical Device Companies', icon: Microscope, href: '/medical-device-companies', roles: ['patient'] },
+  { label: 'Insurance Partners', icon: Heart, href: '/insurance-partners', roles: ['patient'] },
+  { label: 'Pharmacies', icon: Store, href: '/pharmacies', roles: ['patient'] },
+  { label: 'Loans', icon: IndianRupee, href: '/loans', roles: ['patient'] },
+  { label: 'Coupons & Schemes', icon: Ticket, href: '/coupons-schemes', roles: ['patient'] },
+  { label: 'Medical Tourism', icon: Plane, href: '/medical-tourism', roles: ['patient'] },
+  { label: 'Clinical Research', icon: TestTube, href: '/clinical-research', roles: ['patient'] },
+  { label: 'Finance Partners', icon: Wallet, href: '/finance-partners', roles: ['patient'] },
+];
+
 const doctorNavItems: NavItem[] = [
   { label: 'Dashboard', icon: Home, href: '/doctor/dashboard', roles: ['doctor'] },
   { label: 'My Patients', icon: Users, href: '/doctor/patients', roles: ['doctor'] },
@@ -52,11 +73,6 @@ const doctorNavItems: NavItem[] = [
   { label: 'Consent Requests', icon: Shield, href: '/doctor/consents', roles: ['doctor'] },
 ];
 
-const comingSoonItems: NavItem[] = [
-  { label: 'Medical Tourism', icon: Calendar, href: '#', roles: ['patient', 'doctor'], badge: 'Soon' },
-  { label: 'Clinical Research', icon: FlaskConical, href: '#', roles: ['patient', 'doctor'], badge: 'Soon' },
-  { label: 'Finance Partners', icon: CreditCard, href: '#', roles: ['patient', 'doctor'], badge: 'Soon' },
-];
 
 type SidebarProps = { forceExpanded?: boolean };
 
@@ -89,6 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
   }, []);
 
   const navItems = user?.role === 'doctor' ? doctorNavItems : patientNavItems;
+  const comingSoonItems = user?.role === 'patient' ? comingSoonNavItems : [];
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -103,13 +120,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
   return (
     <TooltipProvider>
       <aside className={cn(
-        "bg-card border-r border-border h-[calc(100vh-4rem)] overflow-y-auto transition-all duration-300",
+        "bg-card border-r border-border h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden transition-all duration-300",
         isCollapsed ? "w-16" : "w-64"
       )} role="navigation" aria-label="Sidebar Navigation">
-        <div className="p-4 space-y-6">
-        {/* Top spacing to align with header height */}
-        <div className="mb-2" />
-
+        <div className="p-4 space-y-6 min-w-0">
         {/* Main Navigation */}
         <div>
           {!isCollapsed && (
@@ -127,7 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
                   <Button
                     variant={isActive ? "secondary" : "ghost"}
                     className={cn(
-                      "w-full h-10",
+                      "w-full h-10 min-w-0",
                       isCollapsed 
                         ? "justify-center p-0" 
                         : "justify-start gap-3",
@@ -135,16 +149,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
                     )}
                     onClick={() => handleNavigation(item.href)}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4 flex-shrink-0" />
                     {!isCollapsed && (
-                      <>
-                        {item.label}
-                        {item.badge && (
-                          <span className="ml-auto text-xs bg-warning text-warning-foreground px-2 py-1 rounded-full">
-                            {item.badge}
-                          </span>
-                        )}
-                      </>
+                      <span className="truncate text-sm">{item.label}</span>
                     )}
                   </Button>
                   {/* Active indicator for collapsed state */}
@@ -169,7 +176,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
         </div>
 
         {/* Coming Soon Section */}
-        {!isCollapsed && (
+        {!isCollapsed && comingSoonItems.length > 0 && (
           <div>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
               Coming Soon
@@ -177,23 +184,43 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
             <nav className="space-y-1">
               {comingSoonItems.map((item, index) => {
                 const Icon = item.icon;
+                const isActive = location.pathname === item.href;
                 
-                return (
-                  <Button
-                    key={item.label}
-                    variant="ghost"
-                    className="w-full justify-start gap-3 h-10 opacity-60 cursor-not-allowed"
-                    disabled
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                    {item.badge && (
-                      <span className="ml-auto text-xs bg-warning text-warning-foreground px-2 py-1 rounded-full">
-                        {item.badge}
-                      </span>
+                const button = (
+                  <div key={item.href} className="relative">
+                    <Button
+                      variant={isActive ? "secondary" : "ghost"}
+                      className={cn(
+                        "w-full h-10 min-w-0 opacity-75 hover:opacity-90",
+                        isCollapsed 
+                          ? "justify-center p-0" 
+                          : "justify-start gap-3",
+                        isActive && "bg-primary text-primary-foreground hover:bg-primary/90"
+                      )}
+                      onClick={() => handleNavigation(item.href)}
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <span className="truncate text-sm">{item.label}</span>
+                      )}
+                    </Button>
+                    {/* Active indicator for collapsed state */}
+                    {isCollapsed && isActive && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
                     )}
-                  </Button>
+                  </div>
                 );
+
+                return isCollapsed ? (
+                  <Tooltip key={`tooltip-${item.href}`}>
+                    <TooltipTrigger asChild>
+                      {button}
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="ml-2">
+                      <p>{item.label}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : button;
               })}
             </nav>
           </div>

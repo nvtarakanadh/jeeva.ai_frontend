@@ -27,16 +27,16 @@ All colors MUST be HSL for consistency.
     --background: 0 0% 100%;
     --foreground: 215 28% 17%;
 
-    /* Medical primary - calming blue */
+    /* Jeeva.AI Primary - vibrant blue from logo */
     --primary: 210 100% 50%;
     --primary-foreground: 0 0% 100%;
     --primary-light: 210 100% 95%;
     --primary-dark: 210 100% 40%;
 
-    /* Healthcare secondary - trustworthy teal */
-    --secondary: 180 50% 50%;
+    /* Jeeva.AI Secondary - bright teal from logo */
+    --secondary: 180 100% 50%;
     --secondary-foreground: 0 0% 100%;
-    --secondary-light: 180 50% 95%;
+    --secondary-light: 180 100% 95%;
 
     /* Accent - medical green for positive actions */
     --accent: 142 71% 45%;
@@ -68,10 +68,10 @@ All colors MUST be HSL for consistency.
 
     --radius: 0.75rem;
 
-    /* Health-specific gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(210 100% 50%), hsl(180 50% 50%));
+    /* Jeeva.AI brand gradients matching logo */
+    --gradient-hero: linear-gradient(135deg, hsl(210 100% 50%), hsl(180 100% 50%));
     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(210 100% 98%));
-    --gradient-accent: linear-gradient(90deg, hsl(142 71% 45%), hsl(180 50% 50%));
+    --gradient-accent: linear-gradient(90deg, hsl(210 100% 50%), hsl(180 100% 50%));
 
     /* Shadows for medical interface */
     --shadow-soft: 0 2px 12px -4px hsl(210 100% 50% / 0.1);

@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { Heart, LogOut, User, Settings, Menu } from 'lucide-react';
+import { HeartLogo } from '@/components/HeartLogo';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,12 +51,10 @@ export const Header: React.FC = () => {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="p-2 bg-hero-gradient rounded-lg">
-            <Heart className="h-6 w-6 text-white" />
-          </div>
+          <HeartLogo className="h-6 w-6" />
           <div className="flex flex-col justify-center leading-none">
-            <h1 className="text-base sm:text-xl font-bold text-foreground whitespace-nowrap truncate max-w-[200px] sm:max-w-none">Jeeva.AI</h1>
-            <p className="hidden md:block text-[11px] text-muted-foreground leading-tight">Health Management Platform</p>
+            <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent whitespace-nowrap truncate max-w-[200px] sm:max-w-none">Jeeva.AI</h1>
+            <p className="hidden md:block text-[11px] text-muted-foreground leading-tight whitespace-nowrap">Health Management Platform</p>
           </div>
         </div>
 

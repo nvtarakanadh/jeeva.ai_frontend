@@ -83,10 +83,15 @@ export const getOptimizedPatientsForDoctor = async (doctorProfileId: string) => 
       email: access.profiles?.email
     })) || [];
 
+    // Remove duplicates based on patient ID
+    const uniquePatients = patients.filter((patient, index, self) => 
+      index === self.findIndex(p => p.id === patient.id)
+    );
+
     // Cache the result
-    cacheService.set(cacheKey, patients, CACHE_TTL.LONG);
+    cacheService.set(cacheKey, uniquePatients, CACHE_TTL.LONG);
     
-    return patients;
+    return uniquePatients;
   } catch (error) {
     console.error('Error fetching patients:', error);
     return [];

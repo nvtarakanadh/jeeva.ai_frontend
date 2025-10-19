@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import { Heart, User, Stethoscope } from 'lucide-react';
+import { HeartLogo } from '@/components/HeartLogo';
 
 interface RegisterFormProps {
   onToggleMode: () => void;
@@ -88,11 +89,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onToggleMode }) => {
       <Card className="w-full max-w-md shadow-strong">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-hero-gradient rounded-full">
-              <Heart className="h-8 w-8 text-white" />
-            </div>
+            <HeartLogo className="h-8 w-8" />
           </div>
-          <CardTitle className="text-2xl font-bold">Join Jeeva.AI</CardTitle>
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent">Join Jeeva.AI</CardTitle>
           <CardDescription>
             Create your health management account
           </CardDescription>

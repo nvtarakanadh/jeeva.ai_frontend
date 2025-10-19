@@ -27,6 +27,16 @@ import DoctorConsultations from "./pages/doctor/Consultations";
 import PatientConsultations from "./pages/patient/Consultations";
 import PatientPrescriptions from "./pages/patient/Prescriptions";
 import PatientConsultationNotes from "./pages/patient/ConsultationNotes";
+// New Coming Soon pages
+import Vendors from "./pages/patient/Vendors";
+import MedicalDeviceCompanies from "./pages/patient/MedicalDeviceCompanies";
+import InsurancePartners from "./pages/patient/InsurancePartners";
+import Pharmacies from "./pages/patient/Pharmacies";
+import Loans from "./pages/patient/Loans";
+import CouponsSchemes from "./pages/patient/CouponsSchemes";
+import MedicalTourism from "./pages/patient/MedicalTourism";
+import ClinicalResearch from "./pages/patient/ClinicalResearch";
+import FinancePartners from "./pages/patient/FinancePartners";
 import Auth from "./pages/Auth";
 import MainLayout from "./layouts/MainLayout";
 import AuthDebug from "./components/debug/AuthDebug";
@@ -106,6 +116,53 @@ const App = () => {
                 <Route path="/settings" element={
                   <ProtectedRoute allowedRoles={['patient']}>
                     <MainLayout><Settings /></MainLayout>
+                  </ProtectedRoute>
+                } />
+                
+                {/* New Coming Soon Pages */}
+                <Route path="/vendors" element={
+                  <ProtectedRoute allowedRoles={['patient']}>
+                    <MainLayout><Vendors /></MainLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/medical-device-companies" element={
+                  <ProtectedRoute allowedRoles={['patient']}>
+                    <MainLayout><MedicalDeviceCompanies /></MainLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/insurance-partners" element={
+                  <ProtectedRoute allowedRoles={['patient']}>
+                    <MainLayout><InsurancePartners /></MainLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/pharmacies" element={
+                  <ProtectedRoute allowedRoles={['patient']}>
+                    <MainLayout><Pharmacies /></MainLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/loans" element={
+                  <ProtectedRoute allowedRoles={['patient']}>
+                    <MainLayout><Loans /></MainLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/coupons-schemes" element={
+                  <ProtectedRoute allowedRoles={['patient']}>
+                    <MainLayout><CouponsSchemes /></MainLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/medical-tourism" element={
+                  <ProtectedRoute allowedRoles={['patient']}>
+                    <MainLayout><MedicalTourism /></MainLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/clinical-research" element={
+                  <ProtectedRoute allowedRoles={['patient']}>
+                    <MainLayout><ClinicalResearch /></MainLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/finance-partners" element={
+                  <ProtectedRoute allowedRoles={['patient']}>
+                    <MainLayout><FinancePartners /></MainLayout>
                   </ProtectedRoute>
                 } />
                 

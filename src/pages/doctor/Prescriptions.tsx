@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pill, Plus, Calendar, User, FileText, Download, Edit, Trash2, Eye, Stethoscope, X } from 'lucide-react';
+import { Pill, Plus, Calendar, User, FileText, Download, Edit, Trash2, Eye, Stethoscope, X, Upload } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createPrescription, Prescription } from '@/services/prescriptionService';
 import { getOptimizedPrescriptionsForDoctor, getOptimizedPatientsForDoctor, clearPrescriptionCache } from '@/services/optimizedPrescriptionService';
@@ -16,6 +16,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { PageSkeleton } from '@/components/ui/skeleton-loading';
+import { useDropzone } from 'react-dropzone';
 
 const Prescriptions = () => {
   const { user } = useAuth();
@@ -28,6 +29,7 @@ const Prescriptions = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPrescription, setEditingPrescription] = useState<Prescription | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
     patient_id: '',
@@ -40,6 +42,26 @@ const Prescriptions = () => {
     instructions: '',
     prescription_date: new Date().toISOString().split('T')[0],
   });
+
+  // File upload configuration
+  const onDrop = (acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      setSelectedFile(acceptedFiles[0]);
+    }
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/*': ['.png', '.jpg', '.jpeg']
+    },
+    multiple: false
+  });
+
+  const removeFile = () => {
+    setSelectedFile(null);
+  };
 
   useEffect(() => {
     const loadAllData = async () => {
@@ -144,7 +166,46 @@ const Prescriptions = () => {
       };
 
 
-      await createPrescription(prescriptionData);
+      const prescription = await createPrescription(prescriptionData);
+      
+      // Upload file if selected
+      if (selectedFile) {
+        try {
+          // Upload file to Supabase storage
+          const fileExt = selectedFile.name.split('.').pop();
+          const fileName = `${prescription.id}.${fileExt}`;
+          const filePath = `prescriptions/${fileName}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('medical-files')
+            .upload(filePath, selectedFile);
+          
+          if (uploadError) throw uploadError;
+          
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('medical-files')
+            .getPublicUrl(filePath);
+          
+          // Update prescription with file URL
+          const { error: updateError } = await supabase
+            .from('prescriptions')
+            .update({
+              file_url: publicUrl,
+              file_name: selectedFile.name
+            })
+            .eq('id', prescription.id);
+          
+          if (updateError) throw updateError;
+        } catch (fileError) {
+          console.error('File upload error:', fileError);
+          toast({
+            title: "Warning",
+            description: "Prescription created but file upload failed",
+            variant: "destructive",
+          });
+        }
+      }
       
       toast({
         title: "Success",
@@ -152,6 +213,7 @@ const Prescriptions = () => {
       });
       
       setIsCreateOpen(false);
+      setSelectedFile(null);
       setFormData({
         patient_id: '',
         title: '',
@@ -462,6 +524,51 @@ const Prescriptions = () => {
                   placeholder="Special instructions for the patient"
                   rows={3}
                 />
+              </div>
+
+              {/* File Upload Section */}
+              <div className="space-y-2">
+                <Label>Prescription File (Optional)</Label>
+                {!selectedFile ? (
+                  <div
+                    {...getRootProps()}
+                    className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                      isDragActive
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
+                    }`}
+                  >
+                    <input {...getInputProps()} />
+                    <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      {isDragActive
+                        ? 'Drop the file here...'
+                        : 'Drag & drop a prescription file here, or click to select'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Supports PDF, PNG, JPG files
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <FileText className="h-5 w-5 text-blue-500" />
+                      <span className="text-sm font-medium">{selectedFile.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={removeFile}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end space-x-2">

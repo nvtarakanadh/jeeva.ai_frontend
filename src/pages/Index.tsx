@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Heart, Shield, Brain, Users, Activity, Globe } from 'lucide-react';
+import { HeartLogo } from '@/components/HeartLogo';
 
 const Index = () => {
   const { isAuthenticated, user, isLoading, logout } = useAuth();
@@ -41,12 +42,12 @@ const Index = () => {
       <div className="container mx-auto px-4 py-16">
         <div className="text-center max-w-4xl mx-auto">
           <div className="flex justify-center mb-8">
-            <div className="p-4 bg-hero-gradient rounded-full shadow-strong">
-              <Heart className="h-16 w-16 text-white" />
+            <div className="p-6 bg-white rounded-full shadow-strong">
+              <HeartLogo className="h-24 w-24" />
             </div>
           </div>
           
-          <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent">
             Jeeva.AI
           </h1>
           

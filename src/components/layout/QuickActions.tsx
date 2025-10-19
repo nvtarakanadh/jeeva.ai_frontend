@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -11,10 +11,12 @@ import {
   Stethoscope,
   Users,
   Shield,
-  Activity
+  Activity,
+  Brain
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import MedicalReportAnalysisModal from '@/components/ai/MedicalReportAnalysisModal';
 
 interface QuickAction {
   id: string;
@@ -30,6 +32,7 @@ interface QuickAction {
 const QuickActions = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [isMedicalReportModalOpen, setIsMedicalReportModalOpen] = useState(false);
 
   const doctorActions: QuickAction[] = [
     {
@@ -95,6 +98,15 @@ const QuickActions = () => {
       gradient: 'from-blue-50 to-blue-100'
     },
     {
+      id: 'analyze-medical-report',
+      title: 'Analyze Report',
+      icon: Brain,
+      onClick: () => setIsMedicalReportModalOpen(true),
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-50 hover:bg-indigo-100',
+      gradient: 'from-indigo-50 to-indigo-100'
+    },
+    {
       id: 'consent-management',
       title: 'Consent Management',
       icon: Shield,
@@ -152,28 +164,40 @@ const QuickActions = () => {
   };
 
   return (
-    <div className="w-full bg-white border-b border-gray-200 py-2">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-sm font-semibold tracking-wide text-gray-500 mb-2 text-left">Quick Actions</h2>
-        <div className="flex md:flex-wrap flex-nowrap gap-4 overflow-x-auto scroll-smooth scrollbar-hide mb-4">
-          {actions.map((action) => (
-            <button
-              key={action.id}
-              className="w-[76px] h-[76px] max-w-[80px] max-h-[80px] flex-shrink-0 rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md hover:border-gray-300 transform hover:scale-105 transition-transform duration-200 flex flex-col items-center justify-center"
-              onClick={() => handleActionClick(action)}
-              type="button"
-            >
-              <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${action.gradient} flex items-center justify-center mb-1`}>
-                <action.icon className={`h-5 w-5 ${action.color}`} />
-              </div>
-              <span className="text-[11px] font-medium text-gray-700 text-center leading-snug break-words px-1">
-                {action.title}
-              </span>
-            </button>
-          ))}
+    <>
+      <div className="w-full bg-white border-b border-gray-200 py-2">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-sm font-semibold tracking-wide text-gray-500 mb-2 text-left">Quick Actions</h2>
+          <div className="flex md:flex-wrap flex-nowrap gap-4 overflow-x-auto scroll-smooth scrollbar-hide mb-4">
+            {actions.map((action) => (
+              <button
+                key={action.id}
+                className="w-[76px] h-[76px] max-w-[80px] max-h-[80px] flex-shrink-0 rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md hover:border-gray-300 transform hover:scale-105 transition-transform duration-200 flex flex-col items-center justify-center"
+                onClick={() => handleActionClick(action)}
+                type="button"
+              >
+                <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${action.gradient} flex items-center justify-center mb-1`}>
+                  <action.icon className={`h-5 w-5 ${action.color}`} />
+                </div>
+                <span className="text-[11px] font-medium text-gray-700 text-center leading-snug break-words px-1">
+                  {action.title}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+      
+      {/* Medical Report Analysis Modal */}
+      <MedicalReportAnalysisModal
+        isOpen={isMedicalReportModalOpen}
+        onClose={() => setIsMedicalReportModalOpen(false)}
+        onAnalysisComplete={(result) => {
+          console.log('Medical report analysis completed:', result);
+          // You can add additional logic here, like showing a success message
+        }}
+      />
+    </>
   );
 };
 
