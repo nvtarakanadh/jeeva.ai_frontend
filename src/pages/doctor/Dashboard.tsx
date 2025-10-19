@@ -25,6 +25,7 @@ const CalendarComponent = lazy(() => import('@/components/calendar/CalendarCompo
 const CalendarSkeleton = lazy(() => import('@/components/calendar/CalendarSkeleton'));
 import SchedulingModal, { ScheduleData } from '@/components/calendar/SchedulingModal';
 import MeetingDetailsModal from '@/components/calendar/MeetingDetailsModal';
+import WelcomeDashboard from '@/components/dashboard/WelcomeDashboard';
 
 const DoctorDashboard = () => {
   const { user, updateProfile } = useAuth();
@@ -650,12 +651,14 @@ const DoctorDashboard = () => {
         setLoading(true);
         console.log('⏳ Starting data loading...');
         
-        // Set a timeout to show data after 5 seconds even if queries are slow
+        // Set a timeout to show welcome dashboard after 5 seconds even if queries are slow
         timeoutId = setTimeout(() => {
-          console.log('⏰ Data loading timeout, showing basic data');
+          console.log('⏰ Data loading timeout, showing welcome dashboard');
           setStats({ totalPatients: 0, pendingConsents: 0, activeConsents: 0, totalRecords: 0 });
           setRecentActivity([]);
           setUpcomingTasks([]);
+          setEvents([]);
+          setPatients([]);
           setLoading(false);
         }, 5000);
         
@@ -909,6 +912,13 @@ const DoctorDashboard = () => {
         </Card>
       </div>
     );
+  }
+
+  // Show welcome dashboard if no data is available
+  const hasData = stats.totalPatients > 0 || recentActivity.length > 0 || upcomingTasks.length > 0 || events.length > 0;
+  
+  if (!hasData && !loading) {
+    return <WelcomeDashboard userType="doctor" userName={user?.name} />;
   }
 
   return (

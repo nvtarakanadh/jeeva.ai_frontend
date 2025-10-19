@@ -18,6 +18,7 @@ import QuickActions from '@/components/layout/QuickActions';
 import PatientCalendarComponent, { PatientAppointment } from '@/components/calendar/PatientCalendarComponent';
 import PatientSchedulingModal, { PatientScheduleData } from '@/components/calendar/PatientSchedulingModal';
 import DayViewModal, { DayViewEvent } from '@/components/calendar/DayViewModal';
+import WelcomeDashboard from '@/components/dashboard/WelcomeDashboard';
 
 const PatientDashboard = () => {
   const { user } = useAuth();
@@ -660,8 +661,17 @@ const PatientDashboard = () => {
       if (isMountedRef.current) {
         console.log('🔧 Safety timeout: forcing loading to false');
         setLoading(false);
+        // Set empty data to trigger welcome dashboard
+        setHealthRecords({ totalRecords: 0, recentRecords: [] });
+        setAiInsights({ totalInsights: 0, recentInsights: [], averageConfidence: 0 });
+        setActiveConsents(0);
+        setRecentActivity([]);
+        setHealthAlerts([]);
+        setAppointments([]);
+        setDoctors([]);
+        setTestCenters([]);
       }
-    }, 10000); // 10 seconds timeout
+    }, 5000); // 5 seconds timeout
     
     // Cleanup function
     return () => {
@@ -1287,6 +1297,13 @@ const PatientDashboard = () => {
     healthRecords: healthRecords.totalRecords, 
     appointments: appointments.length 
   });
+
+  // Show welcome dashboard if no data is available
+  const hasData = healthRecords.totalRecords > 0 || appointments.length > 0 || recentActivity.length > 0;
+  
+  if (!hasData && !loading) {
+    return <WelcomeDashboard userType="patient" userName={user?.name} />;
+  }
 
   return (
     <div className="space-y-6">
