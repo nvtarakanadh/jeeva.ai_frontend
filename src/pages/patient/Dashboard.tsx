@@ -18,7 +18,6 @@ import QuickActions from '@/components/layout/QuickActions';
 import PatientCalendarComponent, { PatientAppointment } from '@/components/calendar/PatientCalendarComponent';
 import PatientSchedulingModal, { PatientScheduleData } from '@/components/calendar/PatientSchedulingModal';
 import DayViewModal, { DayViewEvent } from '@/components/calendar/DayViewModal';
-import WelcomeDashboard from '@/components/dashboard/WelcomeDashboard';
 
 const PatientDashboard = () => {
   const { user } = useAuth();
@@ -56,26 +55,26 @@ const PatientDashboard = () => {
       }
       console.log('✅ Current user:', user?.email);
 
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile, error: profileError } = await (supabase as any)
         .from('profiles')
         .select('id, full_name, role, user_id')
         .eq('user_id', user?.id)
         .single();
       
-      if (profileError) {
+      if (profileError || !profile) {
         console.error('❌ Profile error:', profileError);
         return false;
       }
       console.log('✅ Profile:', profile);
 
       // Test 2: Check if consultation exists
-      const { data: existing, error: fetchError } = await supabase
+      const { data: existing, error: fetchError } = await (supabase as any)
         .from('consultations')
         .select('id, patient_id, doctor_id, reason, status, consent_id')
         .eq('id', consultationId)
         .single();
       
-      if (fetchError) {
+      if (fetchError || !existing) {
         console.error('❌ Fetch error:', fetchError);
         return false;
       }
@@ -83,10 +82,10 @@ const PatientDashboard = () => {
       console.log('✅ Consultation exists:', existing);
       
       // Test 3: Check if user owns this consultation
-      if (existing.patient_id !== profile.id) {
+      if (existing!.patient_id !== profile!.id) {
         console.error('❌ User does not own this consultation');
-        console.log('Consultation patient_id:', existing.patient_id);
-        console.log('User profile_id:', profile.id);
+        console.log('Consultation patient_id:', existing!.patient_id);
+        console.log('User profile_id:', profile!.id);
         return false;
       }
       console.log('✅ User owns this consultation');
@@ -105,9 +104,9 @@ const PatientDashboard = () => {
       console.log('✅ RLS permissions OK:', rlsTest);
       
       // Test 5: Handle consent_id constraint before deletion
-      if (existing.consent_id) {
+      if (existing!.consent_id) {
         console.log('🔧 Setting consent_id to NULL before deletion...');
-        const { error: updateError } = await supabase
+        const { error: updateError } = await (supabase as any)
           .from('consultations')
           .update({ consent_id: null })
           .eq('id', consultationId);
@@ -562,6 +561,10 @@ const PatientDashboard = () => {
     const loadDashboardData = async () => {
       if (!user?.id || !isMountedRef.current) {
         console.log('❌ Cannot load dashboard data:', { userId: user?.id, mounted: isMountedRef.current });
+        // If no user but component is mounted, set loading to false to prevent blank screen
+        if (isMountedRef.current && !user?.id) {
+          setLoading(false);
+        }
         return;
       }
       
@@ -692,7 +695,7 @@ const PatientDashboard = () => {
         .from('profiles')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .single() as { data: any; error: any };
 
       if (profileError || !patientProfile) {
         console.error('Patient profile not found for real-time subscription:', profileError);
@@ -708,7 +711,7 @@ const PatientDashboard = () => {
             event: '*',
             schema: 'public',
             table: 'consultations',
-            filter: `patient_id=eq.${patientProfile.id}`
+            filter: `patient_id=eq.${patientProfile!.id}`
           },
           (payload) => {
             console.log('🔄 Real-time consultation update:', payload);
@@ -838,7 +841,7 @@ const PatientDashboard = () => {
       }
 
       // Convert consultations to blocked time slot format
-      const blockedSlots = (blockedConsultations || []).map(consultation => {
+      const blockedSlots = (blockedConsultations || []).map((consultation: any) => {
         // Calculate end time (default 30 minutes if not specified)
         const startTime = new Date(`${consultation.consultation_date}T${consultation.consultation_time}`);
         const endTime = new Date(startTime.getTime() + 30 * 60000); // 30 minutes default
@@ -877,7 +880,7 @@ const PatientDashboard = () => {
         .from('profiles')
         .select('id')
         .eq('user_id', userId)
-        .single();
+        .single() as { data: any; error: any };
 
       if (profileError || !patientProfile) {
         console.error('❌ Patient profile not found:', profileError);
@@ -900,8 +903,8 @@ const PatientDashboard = () => {
               doctor_id,
               profiles!consultations_doctor_id_fkey(full_name)
             `)
-            .eq('patient_id', patientProfile.id)
-            .order('consultation_date', { ascending: true });
+            .eq('patient_id', patientProfile!.id)
+            .order('consultation_date', { ascending: true }) as { data: any; error: any };
 
       if (consultationError) {
         console.error('Error fetching consultations:', consultationError);
@@ -1053,12 +1056,12 @@ const PatientDashboard = () => {
       if (data.appointment_type === 'consultation' && data.doctor_id) {
         console.log('Creating consultation in Supabase...');
         
-        // Get patient profile ID
-        const { data: patientProfile, error: profileError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('user_id', user?.id)
-          .single();
+      // Get patient profile ID
+      const { data: patientProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user?.id)
+        .single() as { data: any; error: any };
 
         if (profileError || !patientProfile) {
           console.error('❌ Patient profile not found:', profileError);
@@ -1066,7 +1069,7 @@ const PatientDashboard = () => {
           throw new Error('Patient profile not found');
         }
 
-        console.log('Patient profile ID:', patientProfile.id);
+        console.log('Patient profile ID:', patientProfile!.id);
 
         // Calculate end time
         const [hours, minutes] = data.time.split(':').map(Number);
@@ -1077,7 +1080,7 @@ const PatientDashboard = () => {
 
         // Save consultation to Supabase
         const consultationData = {
-          patient_id: patientProfile.id,
+          patient_id: patientProfile!.id,
           doctor_id: data.doctor_id,
           consultation_date: data.date,
           consultation_time: data.time,
@@ -1090,7 +1093,7 @@ const PatientDashboard = () => {
         
         console.log('Consultation data:', consultationData);
         
-        const { data: consultation, error: consultationError } = await supabase
+        const { data: consultation, error: consultationError } = await (supabase as any)
           .from('consultations')
           .insert(consultationData)
           .select(`
@@ -1191,7 +1194,7 @@ const PatientDashboard = () => {
         
         console.log('Updating consultation with data:', updateData);
         
-        const { data: updatedConsultation, error } = await supabase
+        const { data: updatedConsultation, error } = await (supabase as any)
           .from('consultations')
           .update(updateData)
           .eq('id', appointmentId)
@@ -1297,13 +1300,6 @@ const PatientDashboard = () => {
     healthRecords: healthRecords.totalRecords, 
     appointments: appointments.length 
   });
-
-  // Show welcome dashboard if no data is available
-  const hasData = healthRecords.totalRecords > 0 || appointments.length > 0 || recentActivity.length > 0;
-  
-  if (!hasData && !loading) {
-    return <WelcomeDashboard userType="patient" userName={user?.name} />;
-  }
 
   return (
     <div className="space-y-6">
@@ -1508,7 +1504,7 @@ const PatientDashboard = () => {
                 .from('consultations')
                 .select('id, patient_id, doctor_id, reason, consent_id')
                 .eq('id', eventId)
-                .single();
+                .single() as { data: any; error: any };
               
               if (fetchError) {
                 console.error('❌ Error fetching consultation:', fetchError);
@@ -1527,9 +1523,9 @@ const PatientDashboard = () => {
                 console.log('🗑️ Deleting from Supabase...');
                 
                 // First, try to set consent_id to NULL to avoid constraint issues
-                if (existingConsultation.consent_id) {
+                if (existingConsultation!.consent_id) {
                   console.log('🔧 Setting consent_id to NULL before deletion...');
-                  const { error: updateError } = await supabase
+                  const { error: updateError } = await (supabase as any)
                     .from('consultations')
                     .update({ consent_id: null })
                     .eq('id', eventId);
@@ -1607,7 +1603,7 @@ const PatientDashboard = () => {
                 const newEndTime = format(newEnd, 'HH:mm');
                 
                 // Update in Supabase
-                const { data, error } = await supabase
+                const { data, error } = await (supabase as any)
                   .from('consultations')
                   .update({
                     consultation_date: format(newStart, 'yyyy-MM-dd'),

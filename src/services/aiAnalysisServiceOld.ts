@@ -1,6 +1,6 @@
 // AI Analysis Service that connects to Django backend
 // This replaces the old complex frontend AI analysis with backend integration
-const API_BASE_URL = 'http://127.0.0.1:8000/api/ai';
+const API_BASE_URL = 'https://jeeva-ai-backend-5efz.onrender.com/api/ai';
 
 export interface AIAnalysisResult {
   summary: string;

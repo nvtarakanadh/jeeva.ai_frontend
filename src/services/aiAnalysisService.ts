@@ -2,7 +2,7 @@
 // This replaces the old complex frontend AI analysis with backend integration
 import { supabase } from '@/integrations/supabase/client';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'http://127.0.0.1:8000/api/ai';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'https://jeeva-ai-backend-5efz.onrender.com/api/ai';
 
 export interface AIAnalysisResult {
   summary: string;
@@ -58,6 +58,8 @@ export interface AnalysisResponse {
  */
 export const analyzePrescription = async (request: PrescriptionAnalysisRequest): Promise<AnalysisResponse> => {
   try {
+    console.log('🔍 Analyzing prescription with API URL:', `${API_BASE_URL}/analyze/prescription/`);
+    
     const formData = new FormData();
     formData.append('image', request.image);
     formData.append('title', request.title || 'Prescription Analysis');
@@ -71,14 +73,22 @@ export const analyzePrescription = async (request: PrescriptionAnalysisRequest):
       body: formData,
     });
 
+    console.log('🔍 Prescription analysis response status:', response.status);
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to analyze prescription');
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error occurred' }));
+      console.error('❌ Prescription analysis error:', errorData);
+      throw new Error(errorData.error || `Failed to analyze prescription (Status: ${response.status})`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('✅ Prescription analysis success:', result);
+    return result;
   } catch (error) {
-    console.error('Error analyzing prescription:', error);
+    console.error('❌ Error analyzing prescription:', error);
+    if (error.message.includes('fetch')) {
+      throw new Error('Cannot connect to AI analysis service. Please ensure the Django backend is running on port 8000.');
+    }
     throw error;
   }
 };
@@ -88,6 +98,8 @@ export const analyzePrescription = async (request: PrescriptionAnalysisRequest):
  */
 export const analyzeMedicalReport = async (request: MedicalReportAnalysisRequest): Promise<AnalysisResponse> => {
   try {
+    console.log('🔍 Analyzing medical report with API URL:', `${API_BASE_URL}/analyze/medical-report/`);
+    
     const formData = new FormData();
     formData.append('file', request.file);
     formData.append('title', request.title || 'Medical Report Analysis');
@@ -100,14 +112,22 @@ export const analyzeMedicalReport = async (request: MedicalReportAnalysisRequest
       body: formData,
     });
 
+    console.log('🔍 Medical report analysis response status:', response.status);
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to analyze medical report');
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error occurred' }));
+      console.error('❌ Medical report analysis error:', errorData);
+      throw new Error(errorData.error || `Failed to analyze medical report (Status: ${response.status})`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('✅ Medical report analysis success:', result);
+    return result;
   } catch (error) {
-    console.error('Error analyzing medical report:', error);
+    console.error('❌ Error analyzing medical report:', error);
+    if (error.message.includes('fetch')) {
+      throw new Error('Cannot connect to AI analysis service. Please ensure the Django backend is running on port 8000.');
+    }
     throw error;
   }
 };
@@ -196,17 +216,26 @@ export const listAnalyses = async (): Promise<{ success: boolean; analyses: AIAn
  */
 export const healthCheck = async (): Promise<{ status: string; message: string; timestamp: string }> => {
   try {
+    console.log('🔍 Checking backend health at:', `${API_BASE_URL}/health/`);
+    
     const response = await fetch(`${API_BASE_URL}/health/`, {
       method: 'GET',
     });
 
+    console.log('🔍 Health check response status:', response.status);
+
     if (!response.ok) {
-      throw new Error('Backend health check failed');
+      throw new Error(`Backend health check failed (Status: ${response.status})`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('✅ Backend health check success:', result);
+    return result;
   } catch (error) {
-    console.error('Error checking backend health:', error);
+    console.error('❌ Error checking backend health:', error);
+    if (error.message.includes('fetch')) {
+      throw new Error('Cannot connect to AI analysis service. Please ensure the Django backend is running on port 8000.');
+    }
     throw error;
   }
 };

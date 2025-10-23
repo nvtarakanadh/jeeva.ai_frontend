@@ -58,11 +58,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     let mounted = true;
+    let timeoutId: NodeJS.Timeout;
 
     const initializeAuth = async () => {
       try {
-        // Get initial session
-        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('🔐 Initializing auth...');
+        
+        // Add timeout to prevent hanging
+        const authPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth initialization timeout')), 10000)
+        );
+        
+        const { data: { session }, error } = await Promise.race([authPromise, timeoutPromise]) as any;
         
         if (error) {
           console.error('Session error:', error);
@@ -75,24 +83,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         if (session?.user && mounted) {
+          console.log('🔐 Session found, processing user...');
           setSession(session);
           
-          // Try to get profile data
+          // Try to get profile data with timeout
           try {
-            const { data: profile } = await supabase
+            const profilePromise = supabase
               .from('profiles')
               .select('*')
               .eq('user_id', session.user.id)
               .single();
             
+            const profileTimeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+            );
+            
+            const { data: profile } = await Promise.race([profilePromise, profileTimeoutPromise]) as any;
+            
             const userData = createUserFromSession(session, profile);
             setUser(userData);
+            console.log('🔐 User data set from profile');
           } catch (profileError) {
+            console.log('🔐 Profile fetch failed, using session metadata');
             // Fallback to session metadata
             const userData = createUserFromSession(session);
             setUser(userData);
           }
         } else if (mounted) {
+          console.log('🔐 No session found');
           setUser(null);
           setSession(null);
         }
@@ -104,10 +122,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } finally {
         if (mounted) {
+          console.log('🔐 Auth initialization complete');
           setIsLoading(false);
         }
       }
     };
+
+    // Set a safety timeout to ensure loading is always set to false
+    timeoutId = setTimeout(() => {
+      if (mounted) {
+        console.log('🔐 Safety timeout: forcing loading to false');
+        setIsLoading(false);
+      }
+    }, 15000); // 15 seconds timeout
 
     initializeAuth();
 
@@ -218,6 +245,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => {
       mounted = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, [navigate]);
@@ -363,7 +391,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       // Get the user's profile ID
-      const { data: profileData, error: profileError } = await supabase
+      const { data: profileData, error: profileError } = await (supabase as any)
         .from('profiles')
         .select('id')
         .eq('user_id', user.id)
@@ -374,8 +402,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error('Profile not found');
       }
 
+      if (!profileData.id) {
+        throw new Error('Profile ID not found');
+      }
+
       // Prepare the database update object
-      const dbUpdates: any = {};
+      const dbUpdates: Record<string, any> = {};
       
       if (updates.name) dbUpdates.full_name = updates.name;
       if (updates.email) dbUpdates.email = updates.email;
@@ -425,10 +457,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       // Update the profile in the database
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase as any)
         .from('profiles')
-        .update(dbUpdates)
-        .eq('id', profileData.id);
+        .update(dbUpdates as any)
+        .eq('id', profileData!.id);
 
       if (updateError) {
         console.error('Profile update error:', updateError);

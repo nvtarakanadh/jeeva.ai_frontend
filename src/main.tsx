@@ -2,50 +2,70 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Aggressive Cache Clearing for Development
-if (typeof window !== "undefined" && import.meta.env.DEV) {
-  console.log('🧹 Starting aggressive cache clearing...');
+// Production-safe cache clearing for authentication issues
+if (typeof window !== "undefined") {
+  console.log('🧹 Starting cache clearing...');
   
-  // 1. Unregister all service workers
-  navigator.serviceWorker?.getRegistrations().then(regs => {
-    regs.forEach(reg => {
-      console.log('🗑️ Unregistering service worker:', reg);
-      reg.unregister();
-    });
-  });
-  
-  // 2. Clear all caches
-  if ('caches' in window) {
-    caches.keys().then(cacheNames => {
-      cacheNames.forEach(cacheName => {
-        console.log('🗑️ Deleting cache:', cacheName);
-        caches.delete(cacheName);
+  // Check for corrupted auth state
+  const hasCorruptedAuth = () => {
+    try {
+      const authKeys = Object.keys(localStorage).filter(key => 
+        key.includes('supabase') || key.includes('auth') || key.includes('token')
+      );
+      
+      for (const key of authKeys) {
+        const value = localStorage.getItem(key);
+        if (value) {
+          try {
+            JSON.parse(value);
+          } catch {
+            console.log('🔍 Found corrupted auth data:', key);
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch {
+      return true;
+    }
+  };
+
+  // Clear corrupted auth data in production
+  if (hasCorruptedAuth() || import.meta.env.DEV) {
+    console.log('🧹 Clearing corrupted or stale auth data...');
+    
+    // 1. Unregister all service workers
+    navigator.serviceWorker?.getRegistrations().then(regs => {
+      regs.forEach(reg => {
+        console.log('🗑️ Unregistering service worker:', reg);
+        reg.unregister();
       });
     });
-  }
-  
-  // 3. Clear all localStorage
-  Object.keys(localStorage).forEach(key => {
-    if (key.includes('supabase') || key.includes('auth') || key.includes('token')) {
-      console.log('🗑️ Clearing localStorage key:', key);
-      localStorage.removeItem(key);
+    
+    // 2. Clear all caches
+    if ('caches' in window) {
+      caches.keys().then(cacheNames => {
+        cacheNames.forEach(cacheName => {
+          console.log('🗑️ Deleting cache:', cacheName);
+          caches.delete(cacheName);
+        });
+      });
     }
-  });
-  
-  // 4. Clear sessionStorage
-  sessionStorage.clear();
-  console.log('🗑️ Cleared sessionStorage');
-  
-  // 5. Force reload if this is not the first load - DISABLED to prevent infinite reload
-  // if (performance.navigation.type === 1) { // Navigation type 1 = reload
-  //   console.log('🔄 This is a reload, clearing everything...');
-  //   // Clear everything and reload
-  //   setTimeout(() => {
-  //     window.location.reload();
-  //   }, 100);
-  // }
-  
-  console.log('✅ Cache clearing completed');
+    
+    // 3. Clear auth-related localStorage
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes('supabase') || key.includes('auth') || key.includes('token')) {
+        console.log('🗑️ Clearing localStorage key:', key);
+        localStorage.removeItem(key);
+      }
+    });
+    
+    // 4. Clear sessionStorage
+    sessionStorage.clear();
+    console.log('🗑️ Cleared sessionStorage');
+    
+    console.log('✅ Cache clearing completed');
+  }
 }
 
 
@@ -260,6 +280,22 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
   console.log('- window.testAuthEndpoint() - tests auth endpoint directly');
   console.log('- window.testLoginNow() - tests login immediately');
   console.log('- window.testDoctorsAPI() - tests doctors API directly');
+  
+  // Add AI backend health check function
+  (window as any).testAIBackend = async () => {
+    console.log('🧪 Testing AI backend connection...');
+    try {
+      const { healthCheck } = await import('@/services/aiAnalysisService');
+      const result = await healthCheck();
+      console.log('✅ AI Backend health check:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ AI Backend health check failed:', error);
+      return { error: error.message };
+    }
+  };
+  
+  console.log('- window.testAIBackend() - test AI backend connection');
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

@@ -15,26 +15,30 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   fallbackPath = '/auth' 
 }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [authTimeout, setAuthTimeout] = React.useState(false);
 
-  // Remove logging to prevent unnecessary re-renders
-  // const prevState = React.useRef({ isAuthenticated, isLoading, userRole: user?.role });
-  // React.useEffect(() => {
-  //   const currentState = { isAuthenticated, isLoading, userRole: user?.role };
-  //   if (JSON.stringify(prevState.current) !== JSON.stringify(currentState)) {
-  //     console.log('🔧 ProtectedRoute: State changed', currentState);
-  //     prevState.current = currentState;
-  //   }
-  // }, [isAuthenticated, isLoading, user?.role]);
+  // Safety timeout to prevent infinite loading
+  React.useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        console.log('🔧 ProtectedRoute: Auth timeout, forcing navigation to auth');
+        setAuthTimeout(true);
+      }
+    }, 10000); // 10 seconds timeout
+
+    return () => clearTimeout(timeout);
+  }, [isLoading]);
 
   // Show loading while checking authentication
-  if (isLoading) {
+  if (isLoading && !authTimeout) {
     return <PageSkeleton />;
   }
 
-  // Don't render if not authenticated or wrong role
-  if (!isAuthenticated || !user) {
+  // If auth times out, redirect to auth page
+  if (authTimeout || (!isAuthenticated || !user)) {
     return <Navigate to={fallbackPath} replace />;
   }
+  
   if (!allowedRoles.includes(user.role)) {
     const correctPath = user.role === 'doctor' ? '/doctor/dashboard' : '/dashboard';
     return <Navigate to={correctPath} replace />;
