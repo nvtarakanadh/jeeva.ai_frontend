@@ -1,6 +1,21 @@
 // AI Analysis Service that connects to Django backend
 // This replaces the old complex frontend AI analysis with backend integration
-const API_BASE_URL = 'https://jeeva-ai-backend-5efz.onrender.com/api/ai';
+// Determine the correct API URL based on environment
+const getAPIBaseURL = () => {
+  // Check if we're in production (Vercel)
+  const isProduction = window.location.hostname.includes('vercel.app') || 
+                      window.location.hostname.includes('netlify.app') ||
+                      !window.location.hostname.includes('localhost');
+  
+  if (isProduction) {
+    return 'https://jeeva-ai-backend-5efz.onrender.com/api/ai';
+  }
+  
+  // Development fallback
+  return 'http://127.0.0.1:8000/api/ai';
+};
+
+const API_BASE_URL = getAPIBaseURL();
 
 export interface AIAnalysisResult {
   summary: string;

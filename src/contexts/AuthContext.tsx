@@ -59,33 +59,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   };
 
-  // Clear corrupted auth data
+  // Clear corrupted auth data (more conservative approach)
   const clearCorruptedAuth = () => {
     try {
-      // Clear Supabase auth tokens
+      // Only clear obviously corrupted data, not all auth data
       const authKeys = Object.keys(localStorage).filter(key => key.startsWith('sb-'));
       authKeys.forEach(key => {
         try {
           const value = localStorage.getItem(key);
           if (value) {
             const parsed = JSON.parse(value);
-            if (!parsed.access_token || !parsed.user) {
+            // Only clear if truly corrupted (missing essential fields)
+            if (!parsed.access_token || !parsed.user || !parsed.refresh_token) {
+              console.log('🔐 Clearing corrupted auth key:', key);
               localStorage.removeItem(key);
             }
           }
         } catch {
+          // Only clear if JSON parsing fails
+          console.log('🔐 Clearing unparseable auth key:', key);
           localStorage.removeItem(key);
         }
       });
 
-      // Clear session storage
-      sessionStorage.clear();
+      // Don't clear session storage unless absolutely necessary
+      // sessionStorage.clear();
       
-      // Clear any other auth-related data
-      localStorage.removeItem('supabase.auth.token');
-      localStorage.removeItem('supabase.auth.session');
-      
-      console.log('🔐 Cleared corrupted auth data');
+      console.log('🔐 Cleared only corrupted auth data');
     } catch (error) {
       console.error('🔐 Error clearing auth data:', error);
     }

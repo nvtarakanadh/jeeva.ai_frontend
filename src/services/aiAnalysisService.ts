@@ -2,7 +2,27 @@
 // This replaces the old complex frontend AI analysis with backend integration
 import { supabase } from '@/integrations/supabase/client';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'https://jeeva-ai-backend-5efz.onrender.com/api/ai';
+// Determine the correct API URL based on environment
+const getAPIBaseURL = () => {
+  // Check if we're in production (Vercel)
+  const isProduction = window.location.hostname.includes('vercel.app') || 
+                      window.location.hostname.includes('netlify.app') ||
+                      !window.location.hostname.includes('localhost');
+  
+  if (isProduction) {
+    return 'https://jeeva-ai-backend-5efz.onrender.com/api/ai';
+  }
+  
+  // Development fallback
+  return import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || 'http://127.0.0.1:8000/api/ai';
+};
+
+const API_BASE_URL = getAPIBaseURL();
+
+// Debug logging for production
+console.log('🔧 AI Service initialized with URL:', API_BASE_URL);
+console.log('🔧 Current hostname:', window.location.hostname);
+console.log('🔧 Environment:', import.meta.env.MODE);
 
 export interface AIAnalysisResult {
   summary: string;
