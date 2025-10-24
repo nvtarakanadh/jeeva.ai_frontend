@@ -1153,44 +1153,56 @@ export const HealthRecords = () => {
         ) : (
           filteredRecords.map((record) => (
             <Card key={record.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="p-3 bg-primary/10 rounded-lg">
+              <CardContent className="p-4 sm:p-6">
+                {/* Mobile-first responsive layout */}
+                <div className="space-y-4">
+                  {/* Header section with icon and title */}
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className="p-2 sm:p-3 bg-primary/10 rounded-lg flex-shrink-0">
                       {getFileIcon(record.fileName)}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold">{record.title}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs text-white ${getRecordTypeColor(record.type)}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-sm sm:text-base truncate">{record.title}</h3>
+                        <span className={`px-2 py-1 rounded-full text-xs text-white ${getRecordTypeColor(record.type)} self-start sm:self-center`}>
                           {record.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         </span>
                       </div>
                       {record.description && (
-                        <div className="text-muted-foreground mb-2">{record.description}</div>
+                        <div className="text-muted-foreground text-sm mb-2 line-clamp-2">{record.description}</div>
                       )}
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                         <span>{record.recordDate.toLocaleDateString()}</span>
-                        {record.fileName && <span>• {record.fileName}</span>}
+                        {record.fileName && (
+                          <>
+                            <span className="hidden sm:inline">•</span>
+                            <span className="truncate">{record.fileName}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  
+                  {/* Action buttons - responsive layout */}
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={() => openAIModal(record)}
                       disabled={analyzingRecords.has(record.id)}
+                      className="flex-1 sm:flex-none justify-center sm:justify-start"
                     >
                       {analyzingRecords.has(record.id) ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600 mr-2"></div>
-                          Analyzing...
+                          <span className="hidden sm:inline">Analyzing...</span>
+                          <span className="sm:hidden">Analyzing</span>
                         </>
                       ) : (
                         <>
                           <Brain className="h-4 w-4 mr-2" />
-                          AI Analytics
+                          <span className="hidden sm:inline">AI Analytics</span>
+                          <span className="sm:hidden">AI Analytics</span>
                         </>
                       )}
                     </Button>
@@ -1199,9 +1211,11 @@ export const HealthRecords = () => {
                         variant="outline" 
                         size="sm"
                         onClick={() => openFileViewer(record.fileUrl!, record.fileName || 'Unknown File')}
+                        className="flex-1 sm:flex-none justify-center sm:justify-start"
                       >
                         <Eye className="h-4 w-4 mr-2" />
-                        View File
+                        <span className="hidden sm:inline">View File</span>
+                        <span className="sm:hidden">View</span>
                       </Button>
                     )}
                     <Button 
@@ -1209,17 +1223,19 @@ export const HealthRecords = () => {
                       size="sm"
                       onClick={() => handleDeleteRecord(record.id)}
                       disabled={isDeleting === record.id}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="flex-1 sm:flex-none justify-center sm:justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       {isDeleting === record.id ? (
                         <>
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
-                          Deleting...
+                          <span className="hidden sm:inline">Deleting...</span>
+                          <span className="sm:hidden">Deleting</span>
                         </>
                       ) : (
                         <>
                           <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
+                          <span className="hidden sm:inline">Delete</span>
+                          <span className="sm:hidden">Delete</span>
                         </>
                       )}
                     </Button>
