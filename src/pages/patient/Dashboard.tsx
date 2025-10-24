@@ -559,6 +559,7 @@ const PatientDashboard = () => {
 
   useEffect(() => {
     const loadDashboardData = async () => {
+      // Wait for user to be fully loaded
       if (!user?.id || !isMountedRef.current) {
         console.log('❌ Cannot load dashboard data:', { userId: user?.id, mounted: isMountedRef.current });
         // If no user but component is mounted, set loading to false to prevent blank screen
@@ -566,6 +567,28 @@ const PatientDashboard = () => {
           setLoading(false);
         }
         return;
+      }
+
+      // Add a small delay to ensure auth is fully settled
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Double-check user is still available after delay
+      if (!user?.id || !isMountedRef.current) {
+        console.log('❌ User no longer available after delay');
+        return;
+      }
+
+      // Ensure user object is fully populated
+      if (!user.name || !user.email) {
+        console.log('❌ User object not fully populated:', user);
+        // Wait a bit more for user data to be populated
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Final check
+        if (!user?.id || !user.name || !user.email) {
+          console.log('❌ User still not fully populated after delay');
+          return;
+        }
       }
       
       try {
@@ -639,15 +662,26 @@ const PatientDashboard = () => {
         if (isMountedRef.current) {
           setError('Failed to load dashboard data. Please check your connection and try again.');
           
-          // Set fallback data to prevent blank dashboard
-          setHealthRecords({ totalRecords: 0, recentRecords: [] });
-          setAiInsights({ totalInsights: 0, recentInsights: [], averageConfidence: 0 });
-          setActiveConsents(0);
-          setRecentActivity([]);
-          setHealthAlerts([]);
-          setAppointments([]);
-          setDoctors([]);
-          setTestCenters([]);
+          // Retry loading data after a short delay
+          console.log('🔄 Retrying data load in 2 seconds...');
+          setTimeout(() => {
+            if (isMountedRef.current && user?.id) {
+              console.log('🔄 Retrying dashboard data load...');
+              loadDashboardData();
+            }
+          }, 2000);
+          
+          // Set fallback data to prevent blank dashboard (only if no data exists)
+          if (healthRecords.totalRecords === 0 && appointments.length === 0) {
+            setHealthRecords({ totalRecords: 0, recentRecords: [] });
+            setAiInsights({ totalInsights: 0, recentInsights: [], averageConfidence: 0 });
+            setActiveConsents(0);
+            setRecentActivity([]);
+            setHealthAlerts([]);
+            setAppointments([]);
+            setDoctors([]);
+            setTestCenters([]);
+          }
         }
       } finally {
         if (isMountedRef.current) {
@@ -664,17 +698,24 @@ const PatientDashboard = () => {
       if (isMountedRef.current) {
         console.log('🔧 Safety timeout: forcing loading to false');
         setLoading(false);
-        // Set empty data to trigger welcome dashboard
-        setHealthRecords({ totalRecords: 0, recentRecords: [] });
-        setAiInsights({ totalInsights: 0, recentInsights: [], averageConfidence: 0 });
-        setActiveConsents(0);
-        setRecentActivity([]);
-        setHealthAlerts([]);
-        setAppointments([]);
-        setDoctors([]);
-        setTestCenters([]);
+        
+        // Only set empty data if we haven't loaded any data yet
+        // This prevents overwriting data that was successfully loaded
+        if (healthRecords.totalRecords === 0 && appointments.length === 0) {
+          console.log('🔧 No data loaded yet, setting empty fallback data');
+          setHealthRecords({ totalRecords: 0, recentRecords: [] });
+          setAiInsights({ totalInsights: 0, recentInsights: [], averageConfidence: 0 });
+          setActiveConsents(0);
+          setRecentActivity([]);
+          setHealthAlerts([]);
+          setAppointments([]);
+          setDoctors([]);
+          setTestCenters([]);
+        } else {
+          console.log('🔧 Data already loaded, not overwriting');
+        }
       }
-    }, 5000); // 5 seconds timeout
+    }, 10000); // Increased to 10 seconds timeout
     
     // Cleanup function
     return () => {
