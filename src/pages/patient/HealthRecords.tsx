@@ -1154,10 +1154,10 @@ export const HealthRecords = () => {
           filteredRecords.map((record) => (
             <Card key={record.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4 sm:p-6">
-                {/* Mobile-first responsive layout */}
-                <div className="space-y-4">
-                  {/* Header section with icon and title */}
-                  <div className="flex items-start gap-3 sm:gap-4">
+                {/* Desktop: Original horizontal layout, Mobile: Vertical layout */}
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                  {/* Content section */}
+                  <div className="flex items-start gap-3 sm:gap-4 flex-1">
                     <div className="p-2 sm:p-3 bg-primary/10 rounded-lg flex-shrink-0">
                       {getFileIcon(record.fileName)}
                     </div>
@@ -1183,14 +1183,14 @@ export const HealthRecords = () => {
                     </div>
                   </div>
                   
-                  {/* Action buttons - responsive layout */}
-                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
+                  {/* Action buttons - Desktop: horizontal on right, Mobile: vertical stack */}
+                  <div className="flex flex-col sm:flex-row lg:flex-row gap-2 lg:gap-2 lg:flex-shrink-0">
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={() => openAIModal(record)}
                       disabled={analyzingRecords.has(record.id)}
-                      className="flex-1 sm:flex-none justify-center sm:justify-start"
+                      className="flex-1 sm:flex-none lg:flex-none justify-center sm:justify-start lg:justify-start h-10 sm:h-8 lg:h-8 touch-manipulation"
                     >
                       {analyzingRecords.has(record.id) ? (
                         <>
@@ -1211,7 +1211,7 @@ export const HealthRecords = () => {
                         variant="outline" 
                         size="sm"
                         onClick={() => openFileViewer(record.fileUrl!, record.fileName || 'Unknown File')}
-                        className="flex-1 sm:flex-none justify-center sm:justify-start"
+                        className="flex-1 sm:flex-none lg:flex-none justify-center sm:justify-start lg:justify-start h-10 sm:h-8 lg:h-8 touch-manipulation"
                       >
                         <Eye className="h-4 w-4 mr-2" />
                         <span className="hidden sm:inline">View File</span>
@@ -1223,7 +1223,7 @@ export const HealthRecords = () => {
                       size="sm"
                       onClick={() => handleDeleteRecord(record.id)}
                       disabled={isDeleting === record.id}
-                      className="flex-1 sm:flex-none justify-center sm:justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="flex-1 sm:flex-none lg:flex-none justify-center sm:justify-start lg:justify-start h-10 sm:h-8 lg:h-8 touch-manipulation text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       {isDeleting === record.id ? (
                         <>
