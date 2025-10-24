@@ -2,6 +2,9 @@
 // This replaces the old complex frontend AI analysis with backend integration
 import { supabase } from '@/integrations/supabase/client';
 
+// Railway URL configuration - UPDATE THIS WITH YOUR ACTUAL RAILWAY URL
+const RAILWAY_BACKEND_URL = 'https://jeeva-ai-backend-production.up.railway.app/api/ai';
+
 // Determine the correct API URL based on environment
 const getAPIBaseURL = () => {
   // Check if we're in production (Vercel)
@@ -10,7 +13,8 @@ const getAPIBaseURL = () => {
                       !window.location.hostname.includes('localhost');
   
   if (isProduction) {
-    return 'https://jeeva-ai-backend-5efz.onrender.com/api/ai';
+    // Use Railway backend URL
+    return RAILWAY_BACKEND_URL;
   }
   
   // Development fallback
@@ -164,24 +168,15 @@ export const analyzeHealthRecord = async (request: HealthRecordAnalysisRequest):
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
       },
       body: JSON.stringify(request),
-      credentials: 'omit', // Explicitly set credentials
     });
 
     console.log('🔍 Response status:', response.status);
     console.log('🔍 Response ok:', response.ok);
-    console.log('🔍 Response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
-      let errorData;
-      try {
-        errorData = await response.json();
-      } catch (e) {
-        errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
-      }
+      const errorData = await response.json();
       console.error('❌ Backend error response:', errorData);
       console.error('❌ Full error details:', JSON.stringify(errorData, null, 2));
       throw new Error(errorData.error || 'Failed to analyze health record');
@@ -194,30 +189,6 @@ export const analyzeHealthRecord = async (request: HealthRecordAnalysisRequest):
     console.error('❌ Error analyzing health record:', error);
     console.error('❌ Error type:', typeof error);
     console.error('❌ Error message:', error.message);
-    
-    // If it's a CORS or network error, try once more with different settings
-    if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
-      console.log('🔄 Retrying with different CORS settings...');
-      try {
-        const retryResponse = await fetch(`${API_BASE_URL}/analyze/health-record/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(request),
-          mode: 'cors',
-        });
-        
-        if (retryResponse.ok) {
-          const result = await retryResponse.json();
-          console.log('✅ Retry successful:', result);
-          return result;
-        }
-      } catch (retryError) {
-        console.error('❌ Retry also failed:', retryError);
-      }
-    }
-    
     throw error;
   }
 };

@@ -1,5 +1,9 @@
 // AI Analysis Service that connects to Django backend
 // This replaces the old complex frontend AI analysis with backend integration
+
+// Railway URL configuration - UPDATE THIS WITH YOUR ACTUAL RAILWAY URL
+const RAILWAY_BACKEND_URL = 'https://jeeva-ai-backend-production.up.railway.app/api/ai';
+
 // Determine the correct API URL based on environment
 const getAPIBaseURL = () => {
   // Check if we're in production (Vercel)
@@ -8,7 +12,8 @@ const getAPIBaseURL = () => {
                       !window.location.hostname.includes('localhost');
   
   if (isProduction) {
-    return 'https://jeeva-ai-backend-5efz.onrender.com/api/ai';
+    // Use Railway backend URL
+    return RAILWAY_BACKEND_URL;
   }
   
   // Development fallback
