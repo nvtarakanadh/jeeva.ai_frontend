@@ -32,39 +32,27 @@ const ConsultationConsentRequest: React.FC<ConsultationConsentRequestProps> = ({
 
   const dataTypeOptions: { type: RecordType; label: string; description: string; icon: React.ReactNode }[] = [
     {
-      type: 'lab_test',
-      label: 'Lab Test Results',
-      description: 'Blood tests, urine tests, and other laboratory results',
-      icon: <FileText className="h-4 w-4" />
-    },
-    {
-      type: 'imaging',
-      label: 'Imaging Reports',
-      description: 'X-rays, MRIs, CT scans, and other imaging studies',
-      icon: <FileText className="h-4 w-4" />
-    },
-    {
       type: 'prescription',
-      label: 'Prescription History',
+      label: 'Prescriptions',
       description: 'Current and past medications, dosages, and treatments',
       icon: <Pill className="h-4 w-4" />
     },
     {
-      type: 'consultation',
-      label: 'Consultation Notes',
-      description: 'Previous doctor visits, diagnoses, and treatment plans',
-      icon: <Stethoscope className="h-4 w-4" />
-    },
-    {
-      type: 'vaccination',
-      label: 'Vaccination Records',
-      description: 'Immunization history and vaccine records',
+      type: 'lab_report',
+      label: 'Lab Reports',
+      description: 'Blood tests, urine tests, and other laboratory results',
       icon: <FileText className="h-4 w-4" />
     },
     {
-      type: 'other',
-      label: 'Other Medical Records',
-      description: 'Additional health information and documents',
+      type: 'mri',
+      label: 'MRI',
+      description: 'Magnetic Resonance Imaging studies and results',
+      icon: <FileText className="h-4 w-4" />
+    },
+    {
+      type: 'ct_scan',
+      label: 'CT Scan',
+      description: 'Computed Tomography scans and results',
       icon: <FileText className="h-4 w-4" />
     }
   ];
@@ -96,7 +84,7 @@ const ConsultationConsentRequest: React.FC<ConsultationConsentRequestProps> = ({
           doctorId,
           purpose: `Consultation with Dr. ${doctorName} on ${consultationDate}`,
           requestedDataTypes: selectedDataTypes,
-          duration: 30
+          duration: 7
         });
 
         // Create consent request
@@ -105,7 +93,7 @@ const ConsultationConsentRequest: React.FC<ConsultationConsentRequestProps> = ({
           doctorId,
           purpose: `Consultation with Dr. ${doctorName} on ${consultationDate}`,
           requestedDataTypes: selectedDataTypes,
-          duration: 30, // 30 days default
+          duration: 7, // 7 days default
           message: `I consent to share my medical records with Dr. ${doctorName} for consultation purposes.`
         });
 

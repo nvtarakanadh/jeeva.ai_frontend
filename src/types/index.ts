@@ -33,7 +33,7 @@ export interface Doctor extends User {
   verified: boolean;
 }
 
-export type RecordType = 'lab_test' | 'prescription' | 'imaging' | 'consultation' | 'vaccination' | 'other';
+export type RecordType = 'prescription' | 'lab_report' | 'mri' | 'ct_scan';
 
 export interface HealthRecord {
   id: string;

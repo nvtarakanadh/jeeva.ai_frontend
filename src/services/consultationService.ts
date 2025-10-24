@@ -16,6 +16,7 @@ export interface Consultation {
   notes?: string;
   status: 'scheduled' | 'confirmed' | 'scheduled_no_consent' | 'completed' | 'cancelled';
   consent_id?: string;
+  shared_records?: string[];
   created_at: string;
   updated_at: string;
   patient?: {

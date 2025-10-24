@@ -651,14 +651,12 @@ export const HealthRecords = () => {
 
   const getRecordTypeColor = (type: RecordType) => {
     const colors = {
-      'lab-result': 'bg-blue-500',
       'prescription': 'bg-green-500',
-      'imaging': 'bg-purple-500',
-      'consultation': 'bg-orange-500',
-      'vaccination': 'bg-red-500',
-      'other': 'bg-gray-500'
+      'lab_report': 'bg-blue-500',
+      'mri': 'bg-purple-500',
+      'ct_scan': 'bg-orange-500'
     };
-    return colors[type] || colors.other;
+    return colors[type] || colors.prescription;
   };
 
   const getFileIcon = (fileType?: string) => {
@@ -994,12 +992,10 @@ export const HealthRecords = () => {
                   <SelectValue placeholder="Select record type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="lab-result">Lab Result</SelectItem>
                   <SelectItem value="prescription">Prescription</SelectItem>
-                  <SelectItem value="imaging">Imaging</SelectItem>
-                  <SelectItem value="consultation">Consultation</SelectItem>
-                  <SelectItem value="vaccination">Vaccination</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="lab_report">Lab Report</SelectItem>
+                  <SelectItem value="mri">MRI</SelectItem>
+                  <SelectItem value="ct_scan">CT Scan</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1097,12 +1093,10 @@ export const HealthRecords = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="lab-result">Lab Results</SelectItem>
                 <SelectItem value="prescription">Prescriptions</SelectItem>
-                <SelectItem value="imaging">Imaging</SelectItem>
-                <SelectItem value="consultation">Consultations</SelectItem>
-                <SelectItem value="vaccination">Vaccinations</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="lab_report">Lab Reports</SelectItem>
+                <SelectItem value="mri">MRI</SelectItem>
+                <SelectItem value="ct_scan">CT Scan</SelectItem>
               </SelectContent>
             </Select>
           </div>

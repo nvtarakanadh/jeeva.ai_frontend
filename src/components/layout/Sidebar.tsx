@@ -52,7 +52,7 @@ const patientNavItems: NavItem[] = [
   { label: 'Share Data', icon: Hospital, href: '/share-data', roles: ['patient'] },
 ];
 
-const comingSoonNavItems: NavItem[] = [
+const patientComingSoonNavItems: NavItem[] = [
   { label: 'Vendors', icon: Building2, href: '/vendors', roles: ['patient'] },
   { label: 'Medical Device Companies', icon: Microscope, href: '/medical-device-companies', roles: ['patient'] },
   { label: 'Insurance Partners', icon: Heart, href: '/insurance-partners', roles: ['patient'] },
@@ -62,6 +62,18 @@ const comingSoonNavItems: NavItem[] = [
   { label: 'Medical Tourism', icon: Plane, href: '/medical-tourism', roles: ['patient'] },
   { label: 'Clinical Research', icon: TestTube, href: '/clinical-research', roles: ['patient'] },
   { label: 'Finance Partners', icon: Wallet, href: '/finance-partners', roles: ['patient'] },
+];
+
+const doctorComingSoonNavItems: NavItem[] = [
+  { label: 'Vendors', icon: Building2, href: '/doctor/vendors', roles: ['doctor'] },
+  { label: 'Medical Device Companies', icon: Microscope, href: '/doctor/medical-device-companies', roles: ['doctor'] },
+  { label: 'Insurance Partners', icon: Heart, href: '/doctor/insurance-partners', roles: ['doctor'] },
+  { label: 'Pharmacies', icon: Store, href: '/doctor/pharmacies', roles: ['doctor'] },
+  { label: 'Loans', icon: IndianRupee, href: '/doctor/loans', roles: ['doctor'] },
+  { label: 'Coupons & Schemes', icon: Ticket, href: '/doctor/coupons-schemes', roles: ['doctor'] },
+  { label: 'Medical Tourism', icon: Plane, href: '/doctor/medical-tourism', roles: ['doctor'] },
+  { label: 'Clinical Research', icon: TestTube, href: '/doctor/clinical-research', roles: ['doctor'] },
+  { label: 'Finance Partners', icon: Wallet, href: '/doctor/finance-partners', roles: ['doctor'] },
 ];
 
 const doctorNavItems: NavItem[] = [
@@ -105,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
   }, []);
 
   const navItems = user?.role === 'doctor' ? doctorNavItems : patientNavItems;
-  const comingSoonItems = user?.role === 'patient' ? comingSoonNavItems : [];
+  const comingSoonItems = user?.role === 'doctor' ? doctorComingSoonNavItems : patientComingSoonNavItems;
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);

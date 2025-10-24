@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -100,6 +100,9 @@ export const PrescriptionAnalysisModal: React.FC<PrescriptionAnalysisModalProps>
             <Brain className="h-5 w-5 text-indigo-600" />
             AI Prescription Analysis
           </DialogTitle>
+          <DialogDescription>
+            AI-powered analysis of your prescription with medication details, dosage information, and recommendations
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { format, addMinutes } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,11 @@ import {
   X
 } from 'lucide-react';
 import { PatientAppointment } from './PatientCalendarComponent';
+import { autoMatchRecords, createConsultationWithSharedRecords, type SharedRecord } from '@/services/recordSharingService';
+import { useAuth } from '@/contexts/AuthContext';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Sparkles } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface PatientScheduleData {
   title: string;
@@ -43,6 +48,7 @@ interface PatientSchedulingModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedDate: Date | null;
+  selectedTime?: string; // Add selectedTime prop for auto-selecting time from day view
   onSchedule: (data: PatientScheduleData) => void;
   onUpdate?: (appointmentId: string, data: PatientScheduleData) => void;
   editingAppointment?: PatientAppointment | null;
@@ -131,10 +137,11 @@ const checkOverlap = (
   });
 };
 
-const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
+const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
   isOpen,
   onClose,
   selectedDate,
+  selectedTime,
   onSchedule,
   onUpdate,
   editingAppointment,
@@ -148,17 +155,24 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
   console.log('🔍 Doctors length in modal:', doctors?.length);
   console.log('🔍 PatientSchedulingModal editingAppointment:', editingAppointment);
   console.log('🔍 PatientSchedulingModal existingAppointments:', existingAppointments);
-  const [formData, setFormData] = useState<PatientScheduleData>({
+  console.log('🔍 PatientSchedulingModal selectedDate:', selectedDate);
+  console.log('🔍 PatientSchedulingModal selectedTime:', selectedTime);
+  
+  const initialFormData: PatientScheduleData = {
     title: '',
     appointment_type: 'consultation',
     date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '',
-    time: '',
+    time: selectedTime || '',
     duration: 30,
     doctor_id: '',
     test_center_id: '',
     notes: '',
     status: 'pending'
-  });
+  };
+  
+  console.log('🔍 Initial form data with selectedTime:', initialFormData);
+  
+  const [formData, setFormData] = useState<PatientScheduleData>(initialFormData);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
@@ -166,6 +180,40 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
   // State for blocked time slots
   const [blockedTimeSlots, setBlockedTimeSlots] = React.useState<any[]>([]);
   const [refreshKey, setRefreshKey] = React.useState(0);
+
+  // Record sharing states
+  const [autoMatchedRecords, setAutoMatchedRecords] = useState<SharedRecord[]>([]);
+  const [availableRecords, setAvailableRecords] = useState<SharedRecord[]>([]);
+  const [selectedRecords, setSelectedRecords] = useState<string[]>([]);
+  const [isLoadingRecords, setIsLoadingRecords] = useState(false);
+  const [showRecordSelection, setShowRecordSelection] = useState(true);
+
+  // Auth context
+  const { user } = useAuth();
+
+  // Auto-match records when title changes
+  const handleAutoMatchRecords = async (title: string) => {
+    if (!user?.id || !title.trim()) {
+      setAutoMatchedRecords([]);
+      setAvailableRecords([]);
+      return;
+    }
+
+    setIsLoadingRecords(true);
+    try {
+      const result = await autoMatchRecords(user.id, title);
+      setAutoMatchedRecords(result.autoMatchedRecords);
+      setAvailableRecords(result.availableRecords);
+      
+      // Auto-select the matched records (they will be ticked by default)
+      const autoMatchedIds = result.autoMatchedRecords.map(record => record.id);
+      setSelectedRecords(autoMatchedIds);
+    } catch (error) {
+      console.error('Error auto-matching records:', error);
+    } finally {
+      setIsLoadingRecords(false);
+    }
+  };
 
   // Check if a specific time slot is available for the selected doctor
   const checkTimeSlotAvailability = useCallback((timeString: string) => {
@@ -781,6 +829,16 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
   }, [selectedDate]);
 
   useEffect(() => {
+    if (selectedTime) {
+      console.log('🕐 Setting selected time in form:', selectedTime);
+      setFormData(prev => ({
+        ...prev,
+        time: selectedTime
+      }));
+    }
+  }, [selectedTime]);
+
+  useEffect(() => {
     console.log('🔍 PatientSchedulingModal useEffect - editingAppointment:', editingAppointment);
     console.log('🔍 PatientSchedulingModal useEffect - selectedDate:', selectedDate);
     
@@ -804,7 +862,7 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
         title: '',
         appointment_type: 'consultation',
         date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '',
-        time: '',
+        time: selectedTime || '', // Preserve selectedTime if available
         duration: 30,
         doctor_id: '',
         test_center_id: '',
@@ -812,9 +870,10 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
         status: 'pending'
       };
       console.log('🔍 Setting default form data:', formData);
+      console.log('🔍 selectedTime in default form data:', selectedTime);
       setFormData(formData);
     }
-  }, [editingAppointment, selectedDate]);
+  }, [editingAppointment, selectedDate, selectedTime]);
 
   // Regenerate slots when date, duration, doctor, appointment type, or existing appointments change
   useEffect(() => {
@@ -831,6 +890,13 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
       }
     }
   }, [formData.date, formData.duration, formData.doctor_id, formData.appointment_type, existingAppointments, checkTimeSlotAvailability, formData.time]);
+
+  // Auto-match records when title changes
+  useEffect(() => {
+    if (formData.title && formData.appointment_type === 'consultation') {
+      handleAutoMatchRecords(formData.title);
+    }
+  }, [formData.title, formData.appointment_type]);
 
   const validateForm = useCallback(() => {
     const newErrors: Record<string, string> = {};
@@ -863,7 +929,91 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
     return Object.keys(newErrors).length === 0;
   }, [formData]);
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
+  // Handle consultation creation with shared records
+  const handleConsultationWithRecords = async (formData: PatientScheduleData) => {
+    console.log('🔧 Starting consultation creation with shared records:', {
+      formData,
+      selectedRecords,
+      userId: user?.id
+    });
+
+    try {
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get patient profile
+      console.log('🔍 Fetching patient profile for user:', user.id);
+      const { data: patientProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('❌ Error fetching patient profile:', profileError);
+        throw new Error(`Failed to fetch patient profile: ${profileError.message}`);
+      }
+
+      if (!patientProfile) {
+        throw new Error('Patient profile not found');
+      }
+
+      console.log('✅ Patient profile found:', patientProfile.id);
+
+      // Validate required fields
+      if (!formData.doctor_id) {
+        throw new Error('Doctor must be selected for consultation');
+      }
+      if (!formData.date) {
+        throw new Error('Date is required');
+      }
+      if (!formData.time) {
+        throw new Error('Time is required');
+      }
+      if (!formData.title) {
+        throw new Error('Appointment title is required');
+      }
+
+      console.log('🔧 Creating consultation with data:', {
+        patient_id: patientProfile.id,
+        doctor_id: formData.doctor_id,
+        consultation_date: formData.date,
+        consultation_time: formData.time,
+        reason: formData.title,
+        notes: formData.notes,
+        shared_records: selectedRecords
+      });
+
+      // Create consultation with shared records
+      const consultation = await createConsultationWithSharedRecords({
+        patient_id: patientProfile.id,
+        doctor_id: formData.doctor_id,
+        consultation_date: formData.date,
+        consultation_time: formData.time,
+        reason: formData.title,
+        notes: formData.notes,
+        shared_records: selectedRecords
+      });
+
+      console.log('✅ Consultation created with shared records:', consultation);
+      
+      // Call onSchedule to update the UI (this will refresh the calendar)
+      onSchedule(formData);
+    } catch (error) {
+      console.error('❌ Error in handleConsultationWithRecords:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        formData,
+        selectedRecords,
+        userId: user?.id
+      });
+      throw error; // Re-throw to be caught by the calling function
+    }
+  };
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -888,26 +1038,61 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
       }
     }
 
-    if (editingAppointment && editingAppointment.id !== 'temp-slot' && onUpdate) {
-      onUpdate(editingAppointment.id, formData);
-    } else {
-      onSchedule(formData);
+    try {
+      if (editingAppointment && editingAppointment.id !== 'temp-slot' && onUpdate) {
+        await onUpdate(editingAppointment.id, formData);
+      } else {
+        // For consultations, always use record sharing service
+        if (formData.appointment_type === 'consultation') {
+          await handleConsultationWithRecords(formData);
+        } else {
+          await onSchedule(formData);
+        }
+      }
+      
+      // Only reset and close after successful submission
+      setFormData({
+        title: '',
+        appointment_type: 'consultation',
+        date: '',
+        time: '',
+        duration: 30,
+        doctor_id: '',
+        test_center_id: '',
+        notes: '',
+        status: 'pending'
+      });
+      setErrors({});
+      onClose();
+    } catch (error) {
+      console.error('Error submitting appointment:', error);
+      console.error('Error details:', {
+        error,
+        errorType: typeof error,
+        errorConstructor: error?.constructor?.name,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        formData,
+        selectedRecords
+      });
+      
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = String(error.message);
+      } else if (error) {
+        errorMessage = String(error);
+      }
+      
+      setErrors(prev => ({
+        ...prev,
+        submit: `Failed to create appointment: ${errorMessage}`
+      }));
     }
-    
-    setFormData({
-      title: '',
-      appointment_type: 'consultation',
-      date: '',
-      time: '',
-      duration: 30,
-      doctor_id: '',
-      test_center_id: '',
-      notes: '',
-      status: 'pending'
-    });
-    setErrors({});
-    onClose();
-  }, [validateForm, onSchedule, onUpdate, formData, editingAppointment, onClose, existingAppointments]);
+  }, [validateForm, onSchedule, onUpdate, formData, editingAppointment, onClose, existingAppointments, selectedRecords]);
 
   const getAppointmentTypeIcon = (type: string) => {
     switch (type) {
@@ -1169,6 +1354,142 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
             />
           </div>
 
+          {/* Health Records Sharing Section - Only for consultations */}
+          {formData.appointment_type === 'consultation' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">Health Records Sharing</h3>
+                  <p className="text-sm text-gray-600">Share relevant health records with your doctor</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowRecordSelection(!showRecordSelection)}
+                >
+                  {showRecordSelection ? 'Hide' : 'Add More'} Records
+                </Button>
+              </div>
+
+              {/* Auto-Matched Records */}
+              {autoMatchedRecords.length > 0 && (
+                <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-blue-600" />
+                      <CardTitle className="text-base">Auto-Matched Records</CardTitle>
+                      <Badge variant="secondary" className="text-xs">
+                        {autoMatchedRecords.length} found
+                      </Badge>
+                    </div>
+                    <CardDescription className="text-sm">
+                      These records match your appointment title and are automatically selected. You can untick any record you don't want to share.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {autoMatchedRecords.map((record) => (
+                      <div key={record.id} className="flex items-center space-x-3 p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                        <Checkbox
+                          id={`auto-${record.id}`}
+                          checked={selectedRecords.includes(record.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedRecords(prev => [...prev, record.id]);
+                            } else {
+                              setSelectedRecords(prev => prev.filter(id => id !== record.id));
+                            }
+                          }}
+                        />
+                        <div className="flex-1">
+                          <label htmlFor={`auto-${record.id}`} className="font-medium text-sm cursor-pointer">
+                            {record.title}
+                          </label>
+                          <div className="text-xs text-gray-500">
+                            {record.record_type} • {new Date(record.service_date).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          Auto-matched
+                        </Badge>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Manual Record Selection */}
+              {showRecordSelection && availableRecords.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Add More Records</CardTitle>
+                    <CardDescription className="text-sm">
+                      Select additional health records to share with your doctor for this consultation
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2 max-h-60 overflow-y-auto">
+                    {availableRecords.map((record) => (
+                      <div key={record.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
+                        <Checkbox
+                          id={record.id}
+                          checked={selectedRecords.includes(record.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedRecords(prev => [...prev, record.id]);
+                            } else {
+                              setSelectedRecords(prev => prev.filter(id => id !== record.id));
+                            }
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <label htmlFor={record.id} className="text-sm font-medium cursor-pointer">
+                            {record.title}
+                          </label>
+                          <div className="text-xs text-gray-500">
+                            {record.record_type} • {new Date(record.service_date).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Loading State */}
+              {isLoadingRecords && (
+                <div className="flex items-center justify-center p-4">
+                  <div className="text-sm text-gray-500">Loading health records...</div>
+                </div>
+              )}
+
+              {/* No Records Message */}
+              {!isLoadingRecords && autoMatchedRecords.length === 0 && availableRecords.length === 0 && formData.title && (
+                <div className="text-center p-4 text-sm text-gray-500">
+                  No health records found matching "{formData.title}"
+                </div>
+              )}
+
+              {/* Records Summary */}
+              {selectedRecords.length > 0 && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                      {selectedRecords.length} record{selectedRecords.length !== 1 ? 's' : ''} will be shared with your doctor
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Submit Error */}
+          {errors.submit && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+              <p className="text-sm text-red-800 dark:text-red-200">{errors.submit}</p>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={onClose}>
@@ -1375,6 +1696,135 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
             />
           </div>
 
+          {/* Health Records Sharing Section - Only for consultations */}
+          {formData.appointment_type === 'consultation' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">Health Records Sharing</h3>
+                  <p className="text-sm text-gray-600">Share relevant health records with your doctor</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowRecordSelection(!showRecordSelection)}
+                >
+                  {showRecordSelection ? 'Hide' : 'Add More'} Records
+                </Button>
+              </div>
+
+              {/* Auto-Matched Records */}
+              {autoMatchedRecords.length > 0 && (
+                <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-blue-600" />
+                      <CardTitle className="text-base">Auto-Matched Records</CardTitle>
+                      <Badge variant="secondary" className="text-xs">
+                        {autoMatchedRecords.length} found
+                      </Badge>
+                    </div>
+                    <CardDescription className="text-sm">
+                      These records match your appointment title and are automatically selected. You can untick any record you don't want to share.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {autoMatchedRecords.map((record) => (
+                      <div key={record.id} className="flex items-center space-x-3 p-3 bg-white dark:bg-gray-800 rounded-lg border">
+                        <Checkbox
+                          id={`auto-${record.id}`}
+                          checked={selectedRecords.includes(record.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedRecords(prev => [...prev, record.id]);
+                            } else {
+                              setSelectedRecords(prev => prev.filter(id => id !== record.id));
+                            }
+                          }}
+                        />
+                        <div className="flex-1">
+                          <label htmlFor={`auto-${record.id}`} className="font-medium text-sm cursor-pointer">
+                            {record.title}
+                          </label>
+                          <div className="text-xs text-gray-500">
+                            {record.record_type} • {new Date(record.service_date).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          Auto-matched
+                        </Badge>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Manual Record Selection */}
+              {showRecordSelection && availableRecords.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Add More Records</CardTitle>
+                    <CardDescription className="text-sm">
+                      Select additional health records to share with your doctor for this consultation
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2 max-h-60 overflow-y-auto">
+                    {availableRecords.map((record) => (
+                      <div key={record.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
+                        <Checkbox
+                          id={record.id}
+                          checked={selectedRecords.includes(record.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedRecords(prev => [...prev, record.id]);
+                            } else {
+                              setSelectedRecords(prev => prev.filter(id => id !== record.id));
+                            }
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <label htmlFor={record.id} className="text-sm font-medium cursor-pointer">
+                            {record.title}
+                          </label>
+                          <div className="text-xs text-gray-500">
+                            {record.record_type} • {new Date(record.service_date).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Loading State */}
+              {isLoadingRecords && (
+                <div className="flex items-center justify-center p-4">
+                  <div className="text-sm text-gray-500">Loading health records...</div>
+                </div>
+              )}
+
+              {/* No Records Message */}
+              {!isLoadingRecords && autoMatchedRecords.length === 0 && availableRecords.length === 0 && formData.title && (
+                <div className="text-center p-4 text-sm text-gray-500">
+                  No health records found matching "{formData.title}"
+                </div>
+              )}
+
+              {/* Records Summary */}
+              {selectedRecords.length > 0 && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                      {selectedRecords.length} record{selectedRecords.length !== 1 ? 's' : ''} will be shared with your doctor
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Available Time Slots */}
           {formData.appointment_type && formData.date && (
             <div className="space-y-2">
@@ -1435,6 +1885,13 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
             </div>
           )}
 
+          {/* Submit Error */}
+          {errors.submit && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+              <p className="text-sm text-red-800 dark:text-red-200">{errors.submit}</p>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={onClose}>
@@ -1448,7 +1905,7 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = memo(({
       </DialogContent>
     </Dialog>
   );
-});
+};
 
 PatientSchedulingModal.displayName = 'PatientSchedulingModal';
 

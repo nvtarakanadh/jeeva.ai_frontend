@@ -207,6 +207,53 @@ const App = () => {
                             <MainLayout><Settings /></MainLayout>
                           </ProtectedRoute>
                         } />
+                        
+                        {/* Doctor Coming Soon Pages */}
+                        <Route path="/doctor/vendors" element={
+                          <ProtectedRoute allowedRoles={['doctor']}>
+                            <MainLayout><Vendors /></MainLayout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/doctor/medical-device-companies" element={
+                          <ProtectedRoute allowedRoles={['doctor']}>
+                            <MainLayout><MedicalDeviceCompanies /></MainLayout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/doctor/insurance-partners" element={
+                          <ProtectedRoute allowedRoles={['doctor']}>
+                            <MainLayout><InsurancePartners /></MainLayout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/doctor/pharmacies" element={
+                          <ProtectedRoute allowedRoles={['doctor']}>
+                            <MainLayout><Pharmacies /></MainLayout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/doctor/loans" element={
+                          <ProtectedRoute allowedRoles={['doctor']}>
+                            <MainLayout><Loans /></MainLayout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/doctor/coupons-schemes" element={
+                          <ProtectedRoute allowedRoles={['doctor']}>
+                            <MainLayout><CouponsSchemes /></MainLayout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/doctor/medical-tourism" element={
+                          <ProtectedRoute allowedRoles={['doctor']}>
+                            <MainLayout><MedicalTourism /></MainLayout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/doctor/clinical-research" element={
+                          <ProtectedRoute allowedRoles={['doctor']}>
+                            <MainLayout><ClinicalResearch /></MainLayout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/doctor/finance-partners" element={
+                          <ProtectedRoute allowedRoles={['doctor']}>
+                            <MainLayout><FinancePartners /></MainLayout>
+                          </ProtectedRoute>
+                        } />
                 
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import DoctorSchedulingModal from './DoctorSchedulingModal';
 import PatientSchedulingModal from './PatientSchedulingModal';
 import { Button } from '@/components/ui/button';
@@ -228,6 +228,12 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] md:max-w-6xl max-h-[90vh] overflow-hidden p-0 bg-white shadow-2xl">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Day View - {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'Select a date'}</DialogTitle>
+          <DialogDescription>
+            View and manage appointments for {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'the selected date'}
+          </DialogDescription>
+        </DialogHeader>
         {/* Clean Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center gap-3">

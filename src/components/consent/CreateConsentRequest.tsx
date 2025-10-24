@@ -30,16 +30,14 @@ const CreateConsentRequest: React.FC<CreateConsentRequestProps> = ({ doctorId, o
   const [selectedPatient, setSelectedPatient] = useState<string>('');
   const [purpose, setPurpose] = useState('');
   const [message, setMessage] = useState('');
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(7);
   const [selectedDataTypes, setSelectedDataTypes] = useState<RecordType[]>([]);
 
   const dataTypeOptions: { value: RecordType; label: string }[] = [
-    { value: 'lab_test', label: 'Lab Test Results' },
-    { value: 'imaging', label: 'Imaging Studies' },
     { value: 'prescription', label: 'Prescriptions' },
-    { value: 'consultation', label: 'Consultation Notes' },
-    { value: 'vaccination', label: 'Vaccination Records' },
-    { value: 'other', label: 'Other Records' }
+    { value: 'lab_report', label: 'Lab Reports' },
+    { value: 'mri', label: 'MRI' },
+    { value: 'ct_scan', label: 'CT Scan' }
   ];
 
   useEffect(() => {

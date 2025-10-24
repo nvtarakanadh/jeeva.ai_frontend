@@ -245,9 +245,9 @@ export const respondToConsentRequest = async (
     };
 
     if (response.status === 'approved') {
-      // Set expiration date based on duration (default 30 days)
+      // Set expiration date based on duration (default 7 days)
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + (originalRequest.duration_days || 30));
+      expiresAt.setDate(expiresAt.getDate() + (originalRequest.duration_days || 7));
       updateData.expires_at = expiresAt.toISOString();
     }
 

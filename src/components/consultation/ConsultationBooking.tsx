@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import Calendar from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, Clock, User, Stethoscope, CheckCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, User, Stethoscope, CheckCircle, FileText, Plus, X, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -16,6 +17,7 @@ import { ButtonLoadingSpinner } from '@/components/ui/loading-spinner';
 import ConsultationConsentRequest from '@/components/consent/ConsultationConsentRequest';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { autoMatchRecords, createConsultationWithSharedRecords, type SharedRecord } from '@/services/recordSharingService';
 
 interface Doctor {
   id: string;
@@ -39,6 +41,13 @@ const ConsultationBooking: React.FC<ConsultationBookingProps> = ({ onBookingComp
   const [showConsent, setShowConsent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [consultationId, setConsultationId] = useState<string>('');
+  
+  // Record sharing states
+  const [autoMatchedRecords, setAutoMatchedRecords] = useState<SharedRecord[]>([]);
+  const [availableRecords, setAvailableRecords] = useState<SharedRecord[]>([]);
+  const [selectedRecords, setSelectedRecords] = useState<string[]>([]);
+  const [isLoadingRecords, setIsLoadingRecords] = useState(false);
+  const [showRecordSelection, setShowRecordSelection] = useState(false);
 
   const timeSlots = [
     '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -49,6 +58,13 @@ const ConsultationBooking: React.FC<ConsultationBookingProps> = ({ onBookingComp
   useEffect(() => {
     loadDoctors();
   }, []);
+
+  // Auto-match records when reason changes
+  useEffect(() => {
+    if (reason && reason.length > 2 && user?.id) {
+      handleAutoMatchRecords();
+    }
+  }, [reason, user?.id]);
 
   const loadDoctors = async () => {
     try {
@@ -67,6 +83,36 @@ const ConsultationBooking: React.FC<ConsultationBookingProps> = ({ onBookingComp
         description: "Failed to load doctors list",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleAutoMatchRecords = async () => {
+    if (!user?.id || !reason) return;
+
+    setIsLoadingRecords(true);
+    try {
+      const result = await autoMatchRecords(user.id, reason);
+      setAutoMatchedRecords(result.autoMatchedRecords);
+      setAvailableRecords(result.availableRecords);
+      
+      // Auto-select the matched records
+      setSelectedRecords(result.autoMatchedRecords.map(record => record.id));
+      
+      if (result.autoMatchedRecords.length > 0) {
+        toast({
+          title: "Records Auto-Matched",
+          description: `Found ${result.autoMatchedRecords.length} relevant health records`,
+        });
+      }
+    } catch (error) {
+      console.error('Error auto-matching records:', error);
+      toast({
+        title: "Error",
+        description: "Failed to auto-match health records",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingRecords(false);
     }
   };
 
@@ -104,33 +150,16 @@ const ConsultationBooking: React.FC<ConsultationBookingProps> = ({ onBookingComp
         throw new Error('Patient profile not found');
       }
 
-      // Create consultation booking
-      const { data: consultation, error: consultationError } = await supabase
-        .from('consultations')
-        .insert({
-          patient_id: patientProfile.id,
-          doctor_id: selectedDoctor,
-          consultation_date: consultationDate.toISOString().split('T')[0],
-          consultation_time: consultationTime,
-          reason: reason,
-          notes: notes,
-          status: 'scheduled'
-        })
-        .select()
-        .single();
-
-      if (consultationError) {
-        // If table doesn't exist, show error message
-        if (consultationError.message.includes('Could not find the table') || consultationError.message.includes('relation') || consultationError.message.includes('does not exist')) {
-          toast({
-            title: "Database Setup Required",
-            description: "The consultations table needs to be created in the database. Please contact your administrator.",
-            variant: "destructive"
-          });
-          return;
-        }
-        throw consultationError;
-      }
+      // Create consultation with shared records
+      const consultation = await createConsultationWithSharedRecords({
+        patient_id: patientProfile.id,
+        doctor_id: selectedDoctor,
+        consultation_date: consultationDate.toISOString().split('T')[0],
+        consultation_time: consultationTime,
+        reason: reason,
+        notes: notes,
+        shared_records: selectedRecords
+      });
 
       // Store consultation ID and show consent request
       setConsultationId(consultation.id);
@@ -312,6 +341,110 @@ const ConsultationBooking: React.FC<ConsultationBookingProps> = ({ onBookingComp
             />
           </div>
         </div>
+
+        {/* Health Records Sharing Section */}
+        {(autoMatchedRecords.length > 0 || availableRecords.length > 0) && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Health Records Sharing</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRecordSelection(!showRecordSelection)}
+              >
+                {showRecordSelection ? 'Hide' : 'Manage'} Records
+              </Button>
+            </div>
+
+            {/* Auto-Matched Records */}
+            {autoMatchedRecords.length > 0 && (
+              <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-blue-600" />
+                    <CardTitle className="text-base">Auto-Matched Records</CardTitle>
+                    <Badge variant="secondary" className="text-xs">
+                      {autoMatchedRecords.length} found
+                    </Badge>
+                  </div>
+                  <CardDescription className="text-sm">
+                    These records were automatically matched based on your consultation reason
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {autoMatchedRecords.map((record) => (
+                    <div key={record.id} className="flex items-center gap-3 p-2 bg-white dark:bg-gray-800 rounded border">
+                      <Checkbox
+                        checked={selectedRecords.includes(record.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedRecords(prev => [...prev, record.id]);
+                          } else {
+                            setSelectedRecords(prev => prev.filter(id => id !== record.id));
+                          }
+                        }}
+                      />
+                      <FileText className="h-4 w-4 text-gray-500" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{record.title}</p>
+                        <p className="text-xs text-gray-500">
+                          {record.record_type} • {format(new Date(record.service_date), 'MMM dd, yyyy')}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        Auto-matched
+                      </Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Manual Record Selection */}
+            {showRecordSelection && availableRecords.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Add More Records</CardTitle>
+                  <CardDescription className="text-sm">
+                    Select additional health records to share with your doctor
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2 max-h-60 overflow-y-auto">
+                  {availableRecords.map((record) => (
+                    <div key={record.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded border">
+                      <Checkbox
+                        checked={selectedRecords.includes(record.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedRecords(prev => [...prev, record.id]);
+                          } else {
+                            setSelectedRecords(prev => prev.filter(id => id !== record.id));
+                          }
+                        }}
+                      />
+                      <FileText className="h-4 w-4 text-gray-500" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{record.title}</p>
+                        <p className="text-xs text-gray-500">
+                          {record.record_type} • {format(new Date(record.service_date), 'MMM dd, yyyy')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Selected Records Summary */}
+            {selectedRecords.length > 0 && (
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span>{selectedRecords.length} record{selectedRecords.length !== 1 ? 's' : ''} selected for sharing</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Additional Notes */}
         <div className="space-y-2">

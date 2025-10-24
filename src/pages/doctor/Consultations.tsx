@@ -4,14 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Clock, User, Stethoscope, CheckCircle, XCircle, AlertCircle, Eye, PlusCircle } from 'lucide-react';
+import { Calendar, Clock, User, Stethoscope, CheckCircle, XCircle, AlertCircle, Eye, PlusCircle, FileText, Brain } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageLoadingSpinner } from '@/components/ui/loading-spinner';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDoctorConsultations, Consultation } from '@/services/consultationService';
 import { getPatientRecordsForDoctor } from '@/services/patientRecordsService';
+import { getSharedRecordsForConsultation, type SharedRecord, debugConsentSystem } from '@/services/recordSharingService';
+import AIAnalysisModal from '@/components/ai/AIAnalysisModal';
 import { toast } from '@/hooks/use-toast';
 import CreatePrescription from '@/components/prescription/CreatePrescription';
+import AIAnalysisTags from '@/components/ai/AIAnalysisTags';
 import { supabase } from '@/integrations/supabase/client';
 
 const DoctorConsultations = () => {
@@ -21,6 +24,18 @@ const DoctorConsultations = () => {
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
   const [patientRecords, setPatientRecords] = useState<any[]>([]);
+  const [sharedRecords, setSharedRecords] = useState<SharedRecord[]>([]);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [selectedRecordForAI, setSelectedRecordForAI] = useState<{
+    id: string;
+    title: string;
+    type: string;
+    description?: string;
+    fileUrl?: string;
+    fileName?: string;
+    userId?: string;
+  } | null>(null);
+  const [viewingFile, setViewingFile] = useState<{ url: string; name: string; type: string } | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -43,7 +58,8 @@ const DoctorConsultations = () => {
         throw new Error('Doctor profile not found');
       }
 
-      const data = await getDoctorConsultations(doctorProfile.id);
+      const doctorId = (doctorProfile as { id: string }).id;
+      const data = await getDoctorConsultations(doctorId);
       setConsultations(data);
     } catch (error) {
       console.error('Error loading consultations:', error);
@@ -74,9 +90,87 @@ const DoctorConsultations = () => {
 
   const handleViewConsultation = async (consultation: Consultation) => {
     setSelectedConsultation(consultation);
-    if (consultation.status === 'confirmed') {
+    if (consultation.status === 'confirmed' || consultation.status === 'scheduled') {
       await loadPatientRecords(consultation.patient_id);
+      await loadSharedRecords(consultation.id);
     }
+  };
+
+  const loadSharedRecords = async (consultationId: string) => {
+    try {
+      console.log('🔍 Doctor loading shared records for consultation:', consultationId);
+      
+      // First run debug to see what's in the database
+      await debugConsentSystem(consultationId);
+      
+      const records = await getSharedRecordsForConsultation(consultationId);
+      console.log('📋 Doctor received shared records:', records);
+      setSharedRecords(records);
+    } catch (error) {
+      console.error('❌ Error loading shared records:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load shared records",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const getFileType = (fileName: string) => {
+    const extension = fileName?.split('.').pop()?.toLowerCase();
+    if (['pdf'].includes(extension || '')) return 'pdf';
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension || '')) return 'image';
+    if (['doc', 'docx'].includes(extension || '')) return 'document';
+    return 'file';
+  };
+
+  const openFileViewer = async (fileUrl: string, fileName: string) => {
+    try {
+      const fileType = getFileType(fileName);
+      
+      // If it's already a full URL, use it directly
+      let displayUrl = fileUrl;
+      
+      // Check if it's a Supabase storage path and try different bucket names
+      if (fileUrl && !fileUrl.startsWith('http')) {
+        // Try different possible bucket names
+        const possibleBuckets = ['medical-files', 'prescriptions', 'consultation-notes', 'health-records', 'files'];
+        
+        for (const bucket of possibleBuckets) {
+          try {
+            const { data } = supabase.storage
+              .from(bucket)
+              .getPublicUrl(fileUrl);
+            
+            if (data.publicUrl) {
+              displayUrl = data.publicUrl;
+              break;
+            }
+          } catch (bucketError) {
+            // Continue to next bucket
+          }
+        }
+      }
+      
+      setViewingFile({ url: displayUrl, name: fileName, type: fileType });
+    } catch (error) {
+      // Still try to open with the original URL
+      const fileType = getFileType(fileName);
+      setViewingFile({ url: fileUrl, name: fileName, type: fileType });
+    }
+  };
+
+  const openAIModal = (record: SharedRecord) => {
+    setSelectedRecordForAI({
+      id: record.id,
+      title: record.title,
+      type: record.record_type,
+      description: record.title,
+      fileUrl: record.file_url,
+      fileName: record.file_name,
+      userId: selectedConsultation?.patient_id
+    });
+    setIsAIModalOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -298,6 +392,78 @@ const DoctorConsultations = () => {
                     ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Patient Shared Records (if consent granted) */}
+          {(selectedConsultation.status === 'confirmed' || selectedConsultation.status === 'scheduled') && sharedRecords.length > 0 && (
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Patient Shared Records</CardTitle>
+                <CardDescription>
+                  Records specifically shared for this consultation
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sharedRecords.map((record) => (
+                    <div key={record.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-lg">{record.title}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {record.record_type} • {format(new Date(record.service_date), 'MMM dd, yyyy')}
+                          </p>
+                          {record.file_name && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              File: {record.file_name}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {record.is_auto_matched && (
+                            <Badge variant="secondary" className="text-xs">
+                              Auto-matched
+                            </Badge>
+                          )}
+                          {record.ai_analysis && (
+                            <AIAnalysisTags 
+                              priority={record.ai_analysis.priority}
+                              riskLevel={record.ai_analysis.risk_level}
+                            />
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => openFileViewer(record.file_url || '', record.file_name || 'Unknown File')}
+                          >
+                            <FileText className="h-4 w-4 mr-2" />
+                            View File
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => openAIModal(record)}
+                          >
+                            <Brain className="h-4 w-4 mr-2" />
+                            AI Analytics
+                          </Button>
+                        </div>
+                        {record.access_expires_at && (
+                          <div className="text-xs text-gray-500">
+                            Access until: {format(new Date(record.access_expires_at), 'MMM dd, yyyy')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           )}
@@ -531,6 +697,283 @@ const DoctorConsultations = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* File Viewer Modal */}
+      {viewingFile && (
+        <Dialog open={!!viewingFile} onOpenChange={() => setViewingFile(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                {viewingFile.name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-auto">
+              {viewingFile.type === 'pdf' && (
+                <div className="w-full h-[70vh] border rounded-lg">
+                  <iframe
+                    src={viewingFile.url}
+                    className="w-full h-full border-0 rounded-lg"
+                    title={viewingFile.name}
+                    onError={(e) => {
+                      console.error('Error loading PDF:', e);
+                    }}
+                  />
+                </div>
+              )}
+              {viewingFile.type === 'image' && (
+                <div className="flex items-center justify-center h-[70vh] bg-gray-50 rounded-lg">
+                  <div className="text-center">
+                    <img
+                      src={viewingFile.url}
+                      alt={viewingFile.name}
+                      className="max-w-full max-h-[60vh] object-contain mx-auto"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                    <div className="mt-4 space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => window.open(viewingFile.url, '_blank')}
+                      >
+                        Open in New Tab
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = viewingFile.url;
+                          link.download = viewingFile.name;
+                          link.click();
+                        }}
+                      >
+                        Download
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 break-all">
+                      URL: {viewingFile.url}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {viewingFile.type === 'document' && (
+                <div className="flex items-center justify-center h-[70vh] bg-gray-100 rounded-lg">
+                  <div className="text-center">
+                    <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-lg font-medium">Document Preview</p>
+                    <p className="text-sm text-gray-500 mb-4">{viewingFile.name}</p>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Document preview not available in browser.
+                    </p>
+                    <Button 
+                      onClick={() => window.open(viewingFile.url, '_blank')}
+                      variant="outline"
+                    >
+                      Open in New Tab
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {viewingFile.type === 'file' && (
+                <div className="flex items-center justify-center h-[70vh] bg-gray-100 rounded-lg">
+                  <div className="text-center">
+                    <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-lg font-medium">File Preview</p>
+                    <p className="text-sm text-gray-500 mb-4">{viewingFile.name}</p>
+                    <p className="text-sm text-gray-400 mb-4">
+                      File preview not available in browser.
+                    </p>
+                    <Button 
+                      onClick={() => window.open(viewingFile.url, '_blank')}
+                      variant="outline"
+                    >
+                      Open in New Tab
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-between items-center pt-4 border-t">
+              <p className="text-sm text-gray-500 truncate max-w-md">
+                URL: {viewingFile.url}
+              </p>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.open(viewingFile.url, '_blank')}
+                >
+                  Open in New Tab
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = viewingFile.url;
+                    link.download = viewingFile.name;
+                    link.click();
+                  }}
+                >
+                  Download
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* AI Analysis Modal */}
+      {selectedRecordForAI && (
+        <AIAnalysisModal
+          isOpen={isAIModalOpen}
+          onClose={() => {
+            setIsAIModalOpen(false);
+            setSelectedRecordForAI(null);
+          }}
+          recordId={selectedRecordForAI.id}
+          recordTitle={selectedRecordForAI.title}
+          recordType={selectedRecordForAI.type}
+          recordDescription={selectedRecordForAI.description}
+          fileUrl={selectedRecordForAI.fileUrl}
+          fileName={selectedRecordForAI.fileName}
+          patientId={selectedRecordForAI.userId}
+        />
+      )}
+
+      {/* File Viewer Modal */}
+      {viewingFile && (
+        <Dialog open={!!viewingFile} onOpenChange={() => setViewingFile(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                {viewingFile.name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-auto">
+              {viewingFile.type === 'pdf' && (
+                <div className="w-full h-[70vh] border rounded-lg">
+                  <iframe
+                    src={viewingFile.url}
+                    className="w-full h-full border-0 rounded-lg"
+                    title={viewingFile.name}
+                    onError={(e) => {
+                      console.error('Error loading PDF:', e);
+                    }}
+                  />
+                </div>
+              )}
+              {viewingFile.type === 'image' && (
+                <div className="flex items-center justify-center h-[70vh] bg-gray-50 rounded-lg">
+                  <div className="text-center">
+                    <img
+                      src={viewingFile.url}
+                      alt={viewingFile.name}
+                      className="max-w-full max-h-[60vh] object-contain mx-auto"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                    <div className="mt-4 space-y-2">
+                      <p className="text-sm text-gray-600">If image doesn't load, try these options:</p>
+                      <div className="flex gap-2 justify-center">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => window.open(viewingFile.url, '_blank')}
+                        >
+                          Open in New Tab
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = viewingFile.url;
+                            link.download = viewingFile.name;
+                            link.click();
+                          }}
+                        >
+                          Download
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500 break-all">
+                        URL: {viewingFile.url}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {viewingFile.type === 'document' && (
+                <div className="flex items-center justify-center h-[70vh] bg-gray-100 rounded-lg">
+                  <div className="text-center">
+                    <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-lg font-medium">Document Preview</p>
+                    <p className="text-sm text-gray-500 mb-4">{viewingFile.name}</p>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Document preview not available in browser.
+                    </p>
+                    <Button 
+                      onClick={() => window.open(viewingFile.url, '_blank')}
+                      variant="outline"
+                    >
+                      Open in New Tab
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {viewingFile.type === 'file' && (
+                <div className="flex items-center justify-center h-[70vh] bg-gray-100 rounded-lg">
+                  <div className="text-center">
+                    <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-lg font-medium">File Preview</p>
+                    <p className="text-sm text-gray-500 mb-4">{viewingFile.name}</p>
+                    <p className="text-sm text-gray-400 mb-4">
+                      File preview not available in browser.
+                    </p>
+                    <Button 
+                      onClick={() => window.open(viewingFile.url, '_blank')}
+                      variant="outline"
+                    >
+                      Open in New Tab
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-between items-center pt-4 border-t">
+              <p className="text-sm text-gray-500 truncate max-w-md">
+                URL: {viewingFile.url}
+              </p>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.open(viewingFile.url, '_blank')}
+                >
+                  Open in New Tab
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = viewingFile.url;
+                    link.download = viewingFile.name;
+                    link.click();
+                  }}
+                >
+                  Download
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
