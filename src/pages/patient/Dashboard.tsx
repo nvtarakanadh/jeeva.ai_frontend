@@ -27,6 +27,7 @@ const PatientDashboard = () => {
   const [error, setError] = useState<string | null>(null);
   
   const isMountedRef = useRef(true);
+  const dataLoadedRef = useRef(false);
   const [healthRecords, setHealthRecords] = useState({ totalRecords: 0, recentRecords: [] });
   const [aiInsights, setAiInsights] = useState({ totalInsights: 0, recentInsights: [], averageConfidence: 0 });
   const [activeConsents, setActiveConsents] = useState(0);
@@ -569,6 +570,12 @@ const PatientDashboard = () => {
         return;
       }
 
+      // Prevent multiple simultaneous loads
+      if (dataLoadedRef.current) {
+        console.log('🔄 Data already loaded, skipping reload');
+        return;
+      }
+
       // Add a small delay to ensure auth is fully settled
       await new Promise(resolve => setTimeout(resolve, 100));
       
@@ -656,6 +663,8 @@ const PatientDashboard = () => {
         setDoctors(doctorsData as any);
         setTestCenters(testCentersData as any);
         
+        // Mark data as loaded to prevent unnecessary reloads
+        dataLoadedRef.current = true;
         console.log('✅ All dashboard data loaded');
       } catch (error) {
         console.error('❌ Error loading dashboard data:', error);
@@ -693,35 +702,32 @@ const PatientDashboard = () => {
 
     loadDashboardData();
     
-    // Safety timeout to ensure loading is always set to false
-    const safetyTimeout = setTimeout(() => {
-      if (isMountedRef.current) {
-        console.log('🔧 Safety timeout: forcing loading to false');
-        setLoading(false);
-        
-        // Only set empty data if we haven't loaded any data yet
-        // This prevents overwriting data that was successfully loaded
-        if (healthRecords.totalRecords === 0 && appointments.length === 0) {
-          console.log('🔧 No data loaded yet, setting empty fallback data');
-          setHealthRecords({ totalRecords: 0, recentRecords: [] });
-          setAiInsights({ totalInsights: 0, recentInsights: [], averageConfidence: 0 });
-          setActiveConsents(0);
-          setRecentActivity([]);
-          setHealthAlerts([]);
-          setAppointments([]);
-          setDoctors([]);
-          setTestCenters([]);
-        } else {
-          console.log('🔧 Data already loaded, not overwriting');
-        }
-      }
-    }, 10000); // Increased to 10 seconds timeout
-    
     // Cleanup function
     return () => {
       isMountedRef.current = false;
-      clearTimeout(safetyTimeout);
+      dataLoadedRef.current = false;
     };
+  }, [user?.id]);
+
+  // Refresh data when user returns to dashboard (focus event)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user?.id && dataLoadedRef.current) {
+        console.log('🔄 Page focused, refreshing dashboard data...');
+        // Reset the loaded flag to allow refresh
+        dataLoadedRef.current = false;
+        // Trigger a small delay then reload
+        setTimeout(() => {
+          if (isMountedRef.current && user?.id) {
+            fetchHealthRecords();
+            fetchAppointments();
+          }
+        }, 500);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [user?.id]);
 
   // Real-time subscription for consultations
