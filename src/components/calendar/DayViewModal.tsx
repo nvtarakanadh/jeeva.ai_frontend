@@ -330,9 +330,6 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
               {/* Timeline Container - Scrollable with synchronized time labels */}
               <div 
                 className="flex-1 overflow-x-auto overflow-y-hidden"
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
               >
                 {/* Time Labels Header - Scrolls with timeline */}
                 <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200 p-2 sticky top-0 z-20">
@@ -376,7 +373,7 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
                           <div
                             key={event.id}
                             className={`
-                              absolute top-2 bottom-2 rounded-lg border cursor-move z-10 shadow-sm hover:shadow-md transition-all
+                              absolute top-2 bottom-2 rounded-lg border cursor-pointer z-10 shadow-sm hover:shadow-md transition-all
                               ${getEventColor(event.event_type, event.status)}
                               ${isDragging && draggedEvent?.id === event.id ? 'opacity-50' : ''}
                             `}
@@ -386,7 +383,6 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
                               minWidth: '80px'
                             }}
                             onClick={(e) => handleEventClick(event, e)}
-                            onMouseDown={(e) => handleMouseDown(event, e)}
                             title={`${event.title}${event.patient_name ? ` - ${event.patient_name}` : ''}${event.notes ? ` - ${event.notes}` : ''}`}
                           >
                             <div className="p-2 h-full flex flex-col justify-center group">
