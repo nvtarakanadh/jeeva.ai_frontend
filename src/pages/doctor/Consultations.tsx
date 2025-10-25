@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar, Clock, User, Stethoscope, CheckCircle, XCircle, AlertCircle, Eye, PlusCircle, FileText, Brain } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageLoadingSpinner } from '@/components/ui/loading-spinner';
@@ -89,6 +90,11 @@ const DoctorConsultations = () => {
   };
 
   const handleViewConsultation = async (consultation: Consultation) => {
+    // Reset modal states when selecting a new consultation
+    setIsAIModalOpen(false);
+    setSelectedRecordForAI(null);
+    setViewingFile(null);
+    
     setSelectedConsultation(consultation);
     if (consultation.status === 'confirmed' || consultation.status === 'scheduled') {
       await loadPatientRecords(consultation.patient_id);
@@ -98,13 +104,11 @@ const DoctorConsultations = () => {
 
   const loadSharedRecords = async (consultationId: string) => {
     try {
-      console.log('🔍 Doctor loading shared records for consultation:', consultationId);
       
       // First run debug to see what's in the database
       await debugConsentSystem(consultationId);
       
       const records = await getSharedRecordsForConsultation(consultationId);
-      console.log('📋 Doctor received shared records:', records);
       setSharedRecords(records);
     } catch (error) {
       console.error('❌ Error loading shared records:', error);
@@ -268,6 +272,10 @@ const DoctorConsultations = () => {
           patientName={selectedConsultation.patient?.full_name || 'Unknown Patient'}
           onPrescriptionCreated={() => {
             setShowPrescriptionForm(false);
+            // Reset all modal states when prescription is created
+            setIsAIModalOpen(false);
+            setSelectedRecordForAI(null);
+            setViewingFile(null);
             setSelectedConsultation(null);
             toast({
               title: "Prescription Created",
@@ -291,7 +299,13 @@ const DoctorConsultations = () => {
             </p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline" onClick={() => setSelectedConsultation(null)}>
+            <Button variant="outline" onClick={() => {
+              // Reset all modal states when going back
+              setIsAIModalOpen(false);
+              setSelectedRecordForAI(null);
+              setViewingFile(null);
+              setSelectedConsultation(null);
+            }}>
               Back to Consultations
             </Button>
             {selectedConsultation.status === 'confirmed' && (
@@ -324,7 +338,7 @@ const DoctorConsultations = () => {
                   <p className="text-lg">{selectedConsultation.consultation_time}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Status</p>
+                  <div className="text-sm font-medium text-muted-foreground">Status</div>
                   <Badge className={getStatusColor(selectedConsultation.status)}>
                     <div className="flex items-center space-x-1">
                       {getStatusIcon(selectedConsultation.status)}
@@ -407,18 +421,19 @@ const DoctorConsultations = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sharedRecords.map((record) => (
+                  {sharedRecords.map((record) => {
+                    return (
                     <div key={record.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
                           <h4 className="font-medium text-lg">{record.title}</h4>
-                          <p className="text-sm text-muted-foreground">
+                          <div className="text-sm text-muted-foreground">
                             {record.record_type} • {format(new Date(record.service_date), 'MMM dd, yyyy')}
-                          </p>
+                          </div>
                           {record.file_name && (
-                            <p className="text-xs text-gray-500 mt-1">
+                            <div className="text-xs text-gray-500 mt-1">
                               File: {record.file_name}
-                            </p>
+                            </div>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
@@ -441,19 +456,25 @@ const DoctorConsultations = () => {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => openFileViewer(record.file_url || '', record.file_name || 'Unknown File')}
-                          >
-                            <FileText className="h-4 w-4 mr-2" />
-                            View File
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
                             onClick={() => openAIModal(record)}
+                            className="flex-1 sm:flex-none lg:flex-none justify-center sm:justify-start lg:justify-start h-10 sm:h-8 lg:h-8 touch-manipulation"
                           >
                             <Brain className="h-4 w-4 mr-2" />
-                            AI Analytics
+                            <span className="hidden sm:inline">AI Analytics</span>
+                            <span className="sm:hidden">AI Analytics</span>
                           </Button>
+                          {record.file_url && (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => openFileViewer(record.file_url || '', record.file_name || 'Unknown File')}
+                              className="flex-1 sm:flex-none lg:flex-none justify-center sm:justify-start lg:justify-start h-10 sm:h-8 lg:h-8 touch-manipulation"
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              <span className="hidden sm:inline">View File</span>
+                              <span className="sm:hidden">View</span>
+                            </Button>
+                          )}
                         </div>
                         {record.access_expires_at && (
                           <div className="text-xs text-gray-500">
@@ -462,7 +483,8 @@ const DoctorConsultations = () => {
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -471,6 +493,114 @@ const DoctorConsultations = () => {
       </div>
     );
   }
+
+  const FileViewer = () => {
+    if (!viewingFile) return null;
+
+    return (
+      <Dialog open={!!viewingFile} onOpenChange={() => setViewingFile(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              {viewingFile.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {viewingFile.type === 'pdf' && (
+              <div className="w-full h-[70vh] border rounded-lg">
+                <iframe
+                  src={viewingFile.url}
+                  className="w-full h-full border-0 rounded-lg"
+                  title={viewingFile.name}
+                  onError={(e) => {
+                    console.error('Error loading PDF:', e);
+                  }}
+                />
+              </div>
+            )}
+            {viewingFile.type === 'image' && (
+              <div className="flex items-center justify-center h-[70vh] bg-gray-50 rounded-lg">
+                <div className="text-center">
+                  <img
+                    src={viewingFile.url}
+                    alt={viewingFile.name}
+                    className="max-w-full max-h-[60vh] object-contain mx-auto"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  <div className="mt-4 space-y-2">
+                    <p className="text-sm text-gray-600">If image doesn't load, try these options:</p>
+                    <div className="flex gap-2 justify-center">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => window.open(viewingFile.url, '_blank')}
+                      >
+                        Open in New Tab
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const link = document.createElement('a');
+                          link.href = viewingFile.url;
+                          link.download = viewingFile.name;
+                          link.click();
+                        }}
+                      >
+                        Download
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 break-all">
+                      URL: {viewingFile.url}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {viewingFile.type === 'document' && (
+              <div className="flex items-center justify-center h-[70vh] bg-gray-100 rounded-lg">
+                <div className="text-center">
+                  <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                  <p className="text-lg font-medium">Document Preview</p>
+                  <p className="text-sm text-gray-500 mb-4">{viewingFile.name}</p>
+                  <p className="text-sm text-gray-400 mb-4">
+                    Document preview not available in browser.
+                  </p>
+                  <Button 
+                    onClick={() => window.open(viewingFile.url, '_blank')}
+                    variant="outline"
+                  >
+                    Open in New Tab
+                  </Button>
+                </div>
+              </div>
+            )}
+            {viewingFile.type === 'file' && (
+              <div className="flex items-center justify-center h-[70vh] bg-gray-100 rounded-lg">
+                <div className="text-center">
+                  <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                  <p className="text-lg font-medium">File Preview</p>
+                  <p className="text-sm text-gray-500 mb-4">{viewingFile.name}</p>
+                  <p className="text-sm text-gray-400 mb-4">
+                    File preview not available in browser.
+                  </p>
+                  <Button 
+                    onClick={() => window.open(viewingFile.url, '_blank')}
+                    variant="outline"
+                  >
+                    Open in New Tab
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -587,7 +717,7 @@ const DoctorConsultations = () => {
                         </Button>
                       </div>
                     </div>
-                    <CardDescription>
+                    <div className="text-sm text-muted-foreground">
                       <div className="flex items-center space-x-4 text-sm">
                         <div className="flex items-center space-x-1">
                           <User className="h-4 w-4" />
@@ -598,7 +728,7 @@ const DoctorConsultations = () => {
                           <span>{consultation.consultation_time}</span>
                         </div>
                       </div>
-                    </CardDescription>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
@@ -664,7 +794,7 @@ const DoctorConsultations = () => {
                         </Button>
                       </div>
                     </div>
-                    <CardDescription>
+                    <div className="text-sm text-muted-foreground">
                       <div className="flex items-center space-x-4 text-sm">
                         <div className="flex items-center space-x-1">
                           <User className="h-4 w-4" />
@@ -675,7 +805,7 @@ const DoctorConsultations = () => {
                           <span>{consultation.consultation_time}</span>
                         </div>
                       </div>
-                    </CardDescription>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
@@ -845,135 +975,7 @@ const DoctorConsultations = () => {
       )}
 
       {/* File Viewer Modal */}
-      {viewingFile && (
-        <Dialog open={!!viewingFile} onOpenChange={() => setViewingFile(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                {viewingFile.name}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 overflow-auto">
-              {viewingFile.type === 'pdf' && (
-                <div className="w-full h-[70vh] border rounded-lg">
-                  <iframe
-                    src={viewingFile.url}
-                    className="w-full h-full border-0 rounded-lg"
-                    title={viewingFile.name}
-                    onError={(e) => {
-                      console.error('Error loading PDF:', e);
-                    }}
-                  />
-                </div>
-              )}
-              {viewingFile.type === 'image' && (
-                <div className="flex items-center justify-center h-[70vh] bg-gray-50 rounded-lg">
-                  <div className="text-center">
-                    <img
-                      src={viewingFile.url}
-                      alt={viewingFile.name}
-                      className="max-w-full max-h-[60vh] object-contain mx-auto"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                    <div className="mt-4 space-y-2">
-                      <p className="text-sm text-gray-600">If image doesn't load, try these options:</p>
-                      <div className="flex gap-2 justify-center">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => window.open(viewingFile.url, '_blank')}
-                        >
-                          Open in New Tab
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = viewingFile.url;
-                            link.download = viewingFile.name;
-                            link.click();
-                          }}
-                        >
-                          Download
-                        </Button>
-                      </div>
-                      <p className="text-xs text-gray-500 break-all">
-                        URL: {viewingFile.url}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {viewingFile.type === 'document' && (
-                <div className="flex items-center justify-center h-[70vh] bg-gray-100 rounded-lg">
-                  <div className="text-center">
-                    <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                    <p className="text-lg font-medium">Document Preview</p>
-                    <p className="text-sm text-gray-500 mb-4">{viewingFile.name}</p>
-                    <p className="text-sm text-gray-400 mb-4">
-                      Document preview not available in browser.
-                    </p>
-                    <Button 
-                      onClick={() => window.open(viewingFile.url, '_blank')}
-                      variant="outline"
-                    >
-                      Open in New Tab
-                    </Button>
-                  </div>
-                </div>
-              )}
-              {viewingFile.type === 'file' && (
-                <div className="flex items-center justify-center h-[70vh] bg-gray-100 rounded-lg">
-                  <div className="text-center">
-                    <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                    <p className="text-lg font-medium">File Preview</p>
-                    <p className="text-sm text-gray-500 mb-4">{viewingFile.name}</p>
-                    <p className="text-sm text-gray-400 mb-4">
-                      File preview not available in browser.
-                    </p>
-                    <Button 
-                      onClick={() => window.open(viewingFile.url, '_blank')}
-                      variant="outline"
-                    >
-                      Open in New Tab
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="flex justify-between items-center pt-4 border-t">
-              <p className="text-sm text-gray-500 truncate max-w-md">
-                URL: {viewingFile.url}
-              </p>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => window.open(viewingFile.url, '_blank')}
-                >
-                  Open in New Tab
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = viewingFile.url;
-                    link.download = viewingFile.name;
-                    link.click();
-                  }}
-                >
-                  Download
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <FileViewer />
     </div>
   );
 };
