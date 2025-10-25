@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,18 +32,20 @@ export const AIAnalysisModal: React.FC<AIAnalysisModalProps> = ({
   fileName,
   patientId
 }) => {
+  console.log('🔍 AIAnalysisModal received props:', {
+    isOpen,
+    recordId,
+    recordTitle,
+    patientId
+  });
+  console.log('🔍 AIAnalysisModal render - isOpen:', isOpen);
+  
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch existing analysis when modal opens
-  useEffect(() => {
-    if (isOpen && recordId) {
-      fetchAnalysis();
-    }
-  }, [isOpen, recordId]);
-
-  const fetchAnalysis = async () => {
+  const fetchAnalysis = useCallback(async () => {
+    console.log('🔍 fetchAnalysis function called!');
     setIsLoading(true);
     setError(null);
 
@@ -57,6 +59,7 @@ export const AIAnalysisModal: React.FC<AIAnalysisModalProps> = ({
         // Doctor viewing patient's analysis
         targetUserId = patientId;
         console.log('🔍 Doctor view: Fetching AI insights for patient:', patientId);
+        console.log('🔍 Doctor view: patientId type:', typeof patientId);
       } else {
         // Patient viewing their own analysis
         const { data: { user } } = await supabase.auth.getUser();
@@ -65,21 +68,34 @@ export const AIAnalysisModal: React.FC<AIAnalysisModalProps> = ({
         }
         targetUserId = user.id;
         console.log('🔍 Patient view: Fetching AI insights for user:', user.id);
+        console.log('🔍 Patient view: user.id type:', typeof user.id);
       }
       
       // Fetch AI insights from Supabase
+      console.log('🔍 About to call getAIInsights with targetUserId:', targetUserId);
       const insights = await getAIInsights(targetUserId);
       
       console.log('🔍 All insights for user:', insights);
       console.log('🔍 Looking for record ID:', recordId);
       console.log('🔍 Record ID type:', typeof recordId);
+      console.log('🔍 Total insights found:', insights.length);
+      
+      // Log all record IDs in the insights for comparison
+      if (insights.length > 0) {
+        console.log('🔍 All record IDs in insights:', insights.map(i => ({ id: i.record_id, type: typeof i.record_id })));
+      } else {
+        console.log('🔍 No insights found for user:', targetUserId);
+      }
       
       // Find the insight for this specific record
       const recordInsight = insights.find(insight => {
         console.log('🔍 Comparing insight record_id:', insight.record_id, 'with target:', recordId);
         console.log('🔍 Types - insight:', typeof insight.record_id, 'target:', typeof recordId);
+        console.log('🔍 Exact match:', insight.record_id === recordId);
         return insight.record_id === recordId;
       });
+      
+      console.log('🔍 Found matching insight:', recordInsight);
       
       if (recordInsight) {
         // Parse the stored content (it's stored as JSON string)
@@ -115,7 +131,18 @@ export const AIAnalysisModal: React.FC<AIAnalysisModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [recordId, patientId]);
+
+  // Fetch existing analysis when modal opens
+  useEffect(() => {
+    console.log('🔍 useEffect triggered with:', { isOpen, recordId, patientId });
+    if (isOpen && recordId) {
+      console.log('🔍 Conditions met, calling fetchAnalysis');
+      fetchAnalysis();
+    } else {
+      console.log('🔍 Conditions not met - isOpen:', isOpen, 'recordId:', recordId);
+    }
+  }, [isOpen, recordId, patientId, fetchAnalysis]);
 
   const handleRefreshAnalysis = async () => {
     setError(null);
@@ -123,6 +150,8 @@ export const AIAnalysisModal: React.FC<AIAnalysisModalProps> = ({
   };
 
 
+  console.log('🔍 AIAnalysisModal render - isOpen:', isOpen);
+  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">

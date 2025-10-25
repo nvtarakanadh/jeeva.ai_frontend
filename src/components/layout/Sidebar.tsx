@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { 
@@ -90,31 +91,13 @@ type SidebarProps = { forceExpanded?: boolean };
 
 export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
   const { user } = useAuth();
+  const { isCollapsed, setIsCollapsed } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    // Default to collapsed on smaller viewports
-    return forceExpanded ? false : window.innerWidth < 1024; // collapse by default below lg
-  });
 
-  React.useEffect(() => {
-    if (forceExpanded) return; // don't auto-collapse in forced expanded mode (mobile drawer)
-    const onResize = () => {
-      // Auto-collapse when viewport shrinks below lg; expand when wider if not manually toggled
-      setIsCollapsed(prev => (window.innerWidth < 1024 ? true : prev));
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-
-  // Listen for global toggle events triggered from the header hamburger
-  React.useEffect(() => {
-    if (forceExpanded) return; // header toggle not needed in forced mode
-    const handler = () => setIsCollapsed(prev => !prev);
-    window.addEventListener('sidebar-toggle', handler as any);
-    return () => window.removeEventListener('sidebar-toggle', handler as any);
-  }, []);
+  // For mobile sidebar (forceExpanded=true), always show expanded view
+  // For desktop sidebar, use the global collapsed state
+  const shouldShowExpanded = forceExpanded || !isCollapsed;
 
   const navItems = user?.role === 'doctor' ? doctorNavItems : patientNavItems;
   const comingSoonItems = user?.role === 'doctor' ? doctorComingSoonNavItems : patientComingSoonNavItems;
@@ -124,8 +107,42 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
   };
 
   const handleNavigation = (href: string) => {
+    console.log('🧭 Navigation clicked:', href);
+    console.log('📱 forceExpanded:', forceExpanded);
+    console.log('📏 Screen width:', window.innerWidth);
+    
     if (href !== '#') {
-      navigate(href);
+      // Auto-close sidebar after navigation
+      if (forceExpanded) {
+        // Mobile: Close the mobile sidebar completely
+        console.log('📱 Mobile navigation - closing sidebar');
+        const mobileSidebar = document.getElementById('mobile-sidebar');
+        console.log('📋 Mobile sidebar element:', mobileSidebar);
+        
+        if (mobileSidebar) {
+          console.log('📋 Current classes:', mobileSidebar.className);
+          mobileSidebar.classList.add('-translate-x-full');
+          console.log('✅ Added -translate-x-full class');
+          console.log('📋 New classes:', mobileSidebar.className);
+          
+          // Also try to trigger a custom event to ensure it closes
+          const closeEvent = new CustomEvent('mobile-sidebar-close');
+          document.dispatchEvent(closeEvent);
+          console.log('📡 Dispatched mobile-sidebar-close event');
+        } else {
+          console.log('❌ Mobile sidebar element not found');
+        }
+        
+        // Navigate after closing sidebar
+        setTimeout(() => {
+          navigate(href);
+        }, 100);
+      } else {
+        // Desktop: Half-close (collapse to icons only)
+        console.log('🖥️ Desktop navigation - collapsing sidebar');
+        setIsCollapsed(true);
+        navigate(href);
+      }
     }
   };
 
@@ -133,12 +150,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
     <TooltipProvider>
       <aside className={cn(
         "bg-card border-r border-border h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden transition-all duration-300",
-        isCollapsed ? "w-16" : "w-64"
+        shouldShowExpanded ? "w-64" : "w-16"
       )} role="navigation" aria-label="Sidebar Navigation">
         <div className="p-4 space-y-6 min-w-0">
         {/* Main Navigation */}
         <div>
-          {!isCollapsed && (
+          {shouldShowExpanded && (
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
               Main Menu
             </h2>
@@ -154,26 +171,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
                     variant={isActive ? "secondary" : "ghost"}
                     className={cn(
                       "w-full h-10 min-w-0",
-                      isCollapsed 
-                        ? "justify-center p-0" 
-                        : "justify-start gap-3",
+                      shouldShowExpanded 
+                        ? "justify-start gap-3" 
+                        : "justify-center p-0",
                       isActive && "bg-primary text-primary-foreground hover:bg-primary/90"
                     )}
                     onClick={() => handleNavigation(item.href)}
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
+                    {shouldShowExpanded && (
                       <span className="truncate text-sm">{item.label}</span>
                     )}
                   </Button>
                   {/* Active indicator for collapsed state */}
-                  {isCollapsed && isActive && (
+                  {!shouldShowExpanded && isActive && (
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
                   )}
                 </div>
               );
 
-              return isCollapsed ? (
+              return !shouldShowExpanded ? (
                 <Tooltip key={`tooltip-${item.href}`}>
                   <TooltipTrigger asChild>
                     {button}
@@ -188,7 +205,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
         </div>
 
         {/* Coming Soon Section */}
-        {!isCollapsed && comingSoonItems.length > 0 && (
+        {shouldShowExpanded && comingSoonItems.length > 0 && (
           <div>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
               Coming Soon
@@ -204,26 +221,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
                       variant={isActive ? "secondary" : "ghost"}
                       className={cn(
                         "w-full h-10 min-w-0 opacity-75 hover:opacity-90",
-                        isCollapsed 
-                          ? "justify-center p-0" 
-                          : "justify-start gap-3",
+                        shouldShowExpanded 
+                          ? "justify-start gap-3" 
+                          : "justify-center p-0",
                         isActive && "bg-primary text-primary-foreground hover:bg-primary/90"
                       )}
                       onClick={() => handleNavigation(item.href)}
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" />
-                      {!isCollapsed && (
+                      {shouldShowExpanded && (
                         <span className="truncate text-sm">{item.label}</span>
                       )}
                     </Button>
                     {/* Active indicator for collapsed state */}
-                    {isCollapsed && isActive && (
+                    {!shouldShowExpanded && isActive && (
                       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
                     )}
                   </div>
                 );
 
-                return isCollapsed ? (
+                return !shouldShowExpanded ? (
                   <Tooltip key={`tooltip-${item.href}`}>
                     <TooltipTrigger asChild>
                       {button}
@@ -239,7 +256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
         )}
 
         {/* ABDM Compliance */}
-        {!isCollapsed && (
+        {shouldShowExpanded && (
           <div className="bg-accent-light p-4 rounded-lg">
             <h3 className="text-sm font-semibold text-accent mb-2">ABDM Compliant</h3>
             <p className="text-xs text-muted-foreground">

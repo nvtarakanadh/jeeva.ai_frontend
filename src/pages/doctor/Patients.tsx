@@ -126,8 +126,8 @@ const DoctorPatients = memo(() => {
       console.log('📊 Total AI insights:', allInsights?.length || 0);
       if (allInsights && allInsights.length > 0) {
         console.log('📋 AI insights data:', allInsights);
-        console.log('🔍 User IDs in insights:', [...new Set(allInsights.map(i => i.user_id))]);
-        console.log('🔍 Record IDs in insights:', [...new Set(allInsights.map(i => i.record_id))]);
+        console.log('🔍 User IDs in insights:', [...new Set(allInsights.map((i: any) => i.user_id))]);
+        console.log('🔍 Record IDs in insights:', [...new Set(allInsights.map((i: any) => i.record_id))]);
       }
       
       // Get all health records
@@ -139,8 +139,8 @@ const DoctorPatients = memo(() => {
       console.log('📊 Total health records:', allRecords?.length || 0);
       if (allRecords && allRecords.length > 0) {
         console.log('📋 Health records data:', allRecords);
-        console.log('🔍 User IDs in records:', [...new Set(allRecords.map(r => r.user_id))]);
-        console.log('🔍 Record IDs in records:', [...new Set(allRecords.map(r => r.id))]);
+        console.log('🔍 User IDs in records:', [...new Set(allRecords.map((r: any) => r.user_id))]);
+        console.log('🔍 Record IDs in records:', [...new Set(allRecords.map((r: any) => r.id))]);
       }
       
       return {
@@ -229,8 +229,8 @@ const DoctorPatients = memo(() => {
           console.log('Found patient profiles:', patientProfiles.length);
           
           // Get all record counts in batch queries (much more efficient)
-          const patientIds = patientProfiles.map(p => p.id);
-          const patientUserIds = patientProfiles.map(p => p.user_id);
+          const patientIds = patientProfiles.map((p: any) => p.id);
+          const patientUserIds = patientProfiles.map((p: any) => p.user_id);
           
           // Batch query for health records
           const { data: healthRecords } = await supabase
@@ -255,23 +255,23 @@ const DoctorPatients = memo(() => {
           const prescriptionCounts = new Map<string, number>();
           const consultationCounts = new Map<string, number>();
           
-          healthRecords?.forEach(record => {
+          healthRecords?.forEach((record: any) => {
             const count = healthRecordCounts.get(record.user_id) || 0;
             healthRecordCounts.set(record.user_id, count + 1);
           });
           
-          prescriptions?.forEach(prescription => {
+          prescriptions?.forEach((prescription: any) => {
             const count = prescriptionCounts.get(prescription.patient_id) || 0;
             prescriptionCounts.set(prescription.patient_id, count + 1);
           });
           
-          consultationNotes?.forEach(note => {
+          consultationNotes?.forEach((note: any) => {
             const count = consultationCounts.get(note.patient_id) || 0;
             consultationCounts.set(note.patient_id, count + 1);
           });
           
           // Convert to Patient format with pre-calculated counts
-          const patientData: Patient[] = patientProfiles.map(profile => {
+          const patientData: Patient[] = patientProfiles.map((profile: any) => {
             const healthCount = healthRecordCounts.get(profile.user_id) || 0;
             const prescriptionCount = prescriptionCounts.get(profile.id) || 0;
             const consultationCount = consultationCounts.get(profile.id) || 0;
@@ -380,14 +380,14 @@ const DoctorPatients = memo(() => {
         return;
       }
 
-      console.log('✅ Patient profile found:', patientProfile.full_name, 'user_id:', patientProfile.user_id);
+      console.log('✅ Patient profile found:', (patientProfile as any).full_name, 'user_id:', (patientProfile as any).user_id);
 
       // Run all record queries in parallel
       const [healthRecordsResult, prescriptionsResult, consultationNotesResult] = await Promise.all([
         supabase
           .from('health_records')
           .select('*')
-          .eq('user_id', patientProfile.user_id),
+          .eq('user_id', (patientProfile as any).user_id),
         supabase
           .from('prescriptions')
           .select(`
@@ -422,13 +422,13 @@ const DoctorPatients = memo(() => {
       const allRecords: PatientRecord[] = [];
 
       // Process health records
-      healthRecords?.forEach(record => {
+      healthRecords?.forEach((record: any) => {
         allRecords.push({
           id: record.id,
           patientId: patientId,
-          userId: patientProfile.user_id,
-          patientName: patientProfile.full_name || 'Unknown Patient',
-          patientEmail: patientProfile.email || '',
+          userId: (patientProfile as any).user_id,
+          patientName: (patientProfile as any).full_name || 'Unknown Patient',
+          patientEmail: (patientProfile as any).email || '',
           recordType: 'health_record',
           title: record.title,
           description: record.description,
@@ -442,13 +442,13 @@ const DoctorPatients = memo(() => {
       });
 
       // Process prescriptions
-      prescriptions?.forEach(prescription => {
+      prescriptions?.forEach((prescription: any) => {
         allRecords.push({
           id: prescription.id,
           patientId: patientId,
-          userId: patientProfile.user_id,
-          patientName: patientProfile.full_name || 'Unknown Patient',
-          patientEmail: patientProfile.email || '',
+          userId: (patientProfile as any).user_id,
+          patientName: (patientProfile as any).full_name || 'Unknown Patient',
+          patientEmail: (patientProfile as any).email || '',
           recordType: 'prescription',
           title: prescription.title,
           description: prescription.description,
@@ -466,13 +466,13 @@ const DoctorPatients = memo(() => {
       });
 
       // Process consultation notes
-      consultationNotes?.forEach(note => {
+      consultationNotes?.forEach((note: any) => {
         allRecords.push({
           id: note.id,
           patientId: patientId,
-          userId: patientProfile.user_id,
-          patientName: patientProfile.full_name || 'Unknown Patient',
-          patientEmail: patientProfile.email || '',
+          userId: (patientProfile as any).user_id,
+          patientName: (patientProfile as any).full_name || 'Unknown Patient',
+          patientEmail: (patientProfile as any).email || '',
           recordType: 'consultation_note',
           title: note.title,
           description: note.description,
@@ -538,7 +538,7 @@ const DoctorPatients = memo(() => {
 
       if (profiles && profiles.length > 0) {
         // Convert profiles to search result format
-        const results = profiles.map((profile, index) => ({
+        const results = profiles.map((profile: any, index: number) => ({
           id: profile.user_id || `patient-${index}`,
           name: profile.full_name || 'Unknown Patient',
           email: profile.email || '',
@@ -697,7 +697,7 @@ const DoctorPatients = memo(() => {
   };
 
   // Add Patient functionality
-  const availableDataTypes: RecordType[] = ['lab_test', 'prescription', 'imaging', 'consultation', 'vaccination'];
+  const availableDataTypes: RecordType[] = ['prescription', 'lab_report', 'mri', 'ct_scan'];
 
   const handlePatientSearch = async () => {
     if (!searchQuery.trim()) {
@@ -732,7 +732,7 @@ const DoctorPatients = memo(() => {
 
       if (profiles && profiles.length > 0) {
         // Convert profiles to search result format
-        const results = profiles.map((profile, index) => ({
+        const results = profiles.map((profile: any, index: number) => ({
           id: profile.user_id || `patient-${index}`,
           name: profile.full_name || 'Unknown Patient',
           email: profile.email || '',
@@ -837,79 +837,60 @@ const DoctorPatients = memo(() => {
 
     return (
       <Dialog open={!!viewingFile} onOpenChange={() => setViewingFile(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              {viewingFile.name}
+        <DialogContent className="w-[95vw] max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-2 sm:p-4 mx-auto">
+          <DialogHeader className="pb-2 sm:pb-4 pr-8">
+            <DialogTitle className="flex items-center gap-2 text-sm sm:text-base min-w-0">
+              <FileText className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate pr-2">{viewingFile.name}</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto w-full">
             {viewingFile.type === 'pdf' && (
-              <div className="w-full h-[70vh] border rounded-lg">
-                <iframe
-                  src={viewingFile.url}
-                  className="w-full h-full border-0 rounded-lg"
-                  title={viewingFile.name}
-                  onError={(e) => {
-                    console.error('Error loading PDF:', e);
-                  }}
-                />
+              <div className="flex items-center justify-center h-[50vh] sm:h-[60vh]">
+                <div className="w-full h-full border rounded-lg">
+                  <iframe
+                    src={viewingFile.url}
+                    className="w-full h-full border-0 rounded-lg"
+                    title={viewingFile.name}
+                    onError={(e) => {
+                      console.error('Error loading PDF:', e);
+                    }}
+                  />
+                </div>
               </div>
             )}
             {viewingFile.type === 'image' && (
-              <div className="flex items-center justify-center h-[70vh] bg-gray-50 rounded-lg">
-                <div className="text-center">
+              <div className="h-[50vh] sm:h-[60vh] bg-gray-50 rounded-lg p-4 flex items-center justify-center w-full text-center">
+                <div className="flex items-center justify-center w-full h-full text-center">
                   <img
                     src={viewingFile.url}
                     alt={viewingFile.name}
-                    className="max-w-full max-h-[60vh] object-contain mx-auto"
+                    className="max-w-full max-h-full object-contain rounded shadow-sm"
+                    style={{ 
+                      display: 'block', 
+                      margin: '0 auto',
+                      textAlign: 'center'
+                    }}
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                     }}
                   />
-                  <div className="mt-4 space-y-2">
-                    <p className="text-sm text-gray-600">If image doesn't load, try these options:</p>
-                    <div className="flex gap-2 justify-center">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => window.open(viewingFile.url, '_blank')}
-                      >
-                        Open in New Tab
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          const link = document.createElement('a');
-                          link.href = viewingFile.url;
-                          link.download = viewingFile.name;
-                          link.click();
-                        }}
-                      >
-                        Download
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500 break-all">
-                      URL: {viewingFile.url}
-                    </p>
-                  </div>
                 </div>
               </div>
             )}
             {viewingFile.type === 'document' && (
-              <div className="flex items-center justify-center h-[70vh] bg-gray-100 rounded-lg">
+              <div className="flex items-center justify-center h-[50vh] sm:h-[60vh] bg-gray-100 rounded-lg p-4">
                 <div className="text-center">
-                  <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                  <p className="text-lg font-medium">Document Preview</p>
-                  <p className="text-sm text-gray-500 mb-4">{viewingFile.name}</p>
-                  <p className="text-sm text-gray-400 mb-4">
+                  <FileText className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-gray-400 mb-4" />
+                  <p className="text-base sm:text-lg font-medium">Document Preview</p>
+                  <p className="text-sm text-gray-500 mb-4 break-all">{viewingFile.name}</p>
+                  <p className="text-xs sm:text-sm text-gray-400 mb-4">
                     Document preview not available in browser.
                   </p>
                   <Button 
                     onClick={() => window.open(viewingFile.url, '_blank')}
                     variant="outline"
+                    className="w-full sm:w-auto"
                   >
                     Open in New Tab
                   </Button>
@@ -917,17 +898,18 @@ const DoctorPatients = memo(() => {
               </div>
             )}
             {viewingFile.type === 'file' && (
-              <div className="flex items-center justify-center h-[70vh] bg-gray-100 rounded-lg">
+              <div className="flex items-center justify-center h-[60vh] sm:h-[70vh] bg-gray-100 rounded-lg p-4">
                 <div className="text-center">
-                  <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                  <p className="text-lg font-medium">File Preview</p>
-                  <p className="text-sm text-gray-500 mb-4">{viewingFile.name}</p>
-                  <p className="text-sm text-gray-400 mb-4">
+                  <FileText className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-gray-400 mb-4" />
+                  <p className="text-base sm:text-lg font-medium">File Preview</p>
+                  <p className="text-sm text-gray-500 mb-4 break-all">{viewingFile.name}</p>
+                  <p className="text-xs sm:text-sm text-gray-400 mb-4">
                     File preview not available in browser.
                   </p>
                   <Button 
                     onClick={() => window.open(viewingFile.url, '_blank')}
                     variant="outline"
+                    className="w-full sm:w-auto"
                   >
                     Open in New Tab
                   </Button>
@@ -935,15 +917,13 @@ const DoctorPatients = memo(() => {
               </div>
             )}
           </div>
-          <div className="flex justify-between items-center pt-4 border-t">
-            <p className="text-sm text-gray-500 truncate max-w-md">
-              URL: {viewingFile.url}
-            </p>
-            <div className="flex gap-2">
+          <div className="flex flex-col gap-3 pt-3 sm:pt-4 border-t mt-4">
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => window.open(viewingFile.url, '_blank')}
+                className="flex-1 sm:flex-none"
               >
                 Open in New Tab
               </Button>
@@ -956,10 +936,14 @@ const DoctorPatients = memo(() => {
                   link.download = viewingFile.name;
                   link.click();
                 }}
+                className="flex-1 sm:flex-none"
               >
                 Download
               </Button>
             </div>
+            <p className="text-xs sm:text-sm text-gray-500 break-all">
+              URL: {viewingFile.url}
+            </p>
           </div>
         </DialogContent>
       </Dialog>
@@ -971,17 +955,17 @@ const DoctorPatients = memo(() => {
 
     return (
       <Dialog open={!!viewingDetails} onOpenChange={() => setViewingDetails(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden p-2 sm:p-6">
+          <DialogHeader className="pb-2 sm:pb-4">
             <DialogTitle className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-2 text-sm sm:text-base min-w-0">
                 {getRecordIcon(viewingDetails.recordType || 'health_record')}
-                {viewingDetails.title || 'Untitled Record'}
+                <span className="truncate">{viewingDetails.title || 'Untitled Record'}</span>
               </span>
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-auto space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-500">Record Type</label>
                 <p className="text-sm">{getRecordTypeLabel(viewingDetails.recordType || 'health_record')}</p>
@@ -1008,7 +992,7 @@ const DoctorPatients = memo(() => {
             </div>
 
             {(viewingDetails.recordType === 'prescription') && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-500">Medication</label>
                   <p className="text-sm">{viewingDetails.medication || 'N/A'}</p>
@@ -1038,13 +1022,16 @@ const DoctorPatients = memo(() => {
             {viewingDetails.fileUrl && (
               <div>
                 <label className="text-sm font-medium text-gray-500">Attached File</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <FileText className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-blue-600">{viewingDetails.fileName || 'Unknown File'}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <span className="text-sm text-blue-600 truncate">{viewingDetails.fileName || 'Unknown File'}</span>
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => openFileViewer(viewingDetails.fileUrl!, viewingDetails.fileName || 'Unknown File')}
+                    className="w-full sm:w-auto"
                   >
                     View File
                   </Button>
@@ -1365,7 +1352,7 @@ const DoctorPatients = memo(() => {
       )}
 
       {/* Patient Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -1450,41 +1437,48 @@ const DoctorPatients = memo(() => {
           patients.map((patient) => (
             <div key={patient.id}>
               <Card className="hover:shadow-medium transition-all">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
+              <CardContent className="p-4 sm:p-6">
+                {/* Mobile-first responsive layout */}
+                <div className="space-y-4">
+                  {/* Patient Info Section */}
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold flex-shrink-0">
                       {getInitials(patient.name)}
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-lg">{patient.name}</h3>
-                      <p className="text-muted-foreground">{patient.email}</p>
-                      <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                        <span>{patient.age} years • {patient.gender}</span>
-                        <span>Last visit: {format(patient.lastVisit, 'MMM dd, yyyy')}</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-lg truncate">{patient.name}</h3>
+                      <p className="text-muted-foreground text-sm truncate">{patient.email}</p>
+                      
+                      {/* Patient Details - Stack on mobile, inline on desktop */}
+                      <div className="mt-2 space-y-1 sm:space-y-0 sm:flex sm:items-center sm:gap-4 text-sm text-muted-foreground">
+                        <span className="block sm:inline">{patient.age} years • {patient.gender}</span>
+                        <span className="block sm:inline">Last visit: {format(patient.lastVisit, 'MMM dd, yyyy')}</span>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="font-medium">{patient.condition}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge className={`${getConsentStatusColor(patient.consentStatus)} text-white`}>
+                  {/* Status and Records Section */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm sm:text-base">{patient.condition}</p>
+                        <Badge className={`${getConsentStatusColor(patient.consentStatus)} text-white text-xs`}>
                           {patient.consentStatus}
                         </Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {patient.recordCount} records
-                        </span>
                       </div>
+                      <span className="text-sm text-muted-foreground">
+                        {patient.recordCount} records
+                      </span>
                     </div>
                     
-                    <div className="flex flex-col gap-2">
+                    {/* Action Buttons - Full width on mobile, auto on desktop */}
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => viewPatientRecords(patient.id)}
                         disabled={patient.consentStatus !== 'active'}
+                        className="w-full sm:w-auto"
                       >
                         <Eye className="h-4 w-4 mr-2" />
                         View Records
@@ -1494,6 +1488,7 @@ const DoctorPatients = memo(() => {
                           variant="outline"
                           size="sm"
                           onClick={() => navigate('/doctor/consents')}
+                          className="w-full sm:w-auto"
                         >
                           <Clock className="h-4 w-4 mr-2" />
                           Request Access
@@ -1544,7 +1539,7 @@ const DoctorPatients = memo(() => {
                       </div>
 
                       {/* Summary Stats */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <Card>
                           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Total Records</CardTitle>
@@ -1605,64 +1600,74 @@ const DoctorPatients = memo(() => {
                         <div className="space-y-4">
                           {filteredRecords.map((record) => (
                             <Card key={record.id}>
-                              <CardHeader>
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-2">
-                                    {getRecordIcon(record.recordType)}
-                                    <CardTitle className="text-lg">{record.title}</CardTitle>
-                                    <Badge className={getRecordTypeColor(record.recordType)}>
-                                      {getRecordTypeLabel(record.recordType)}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={() => openDetailsViewer(record)}
-                                    >
-                                      <Eye className="h-4 w-4 mr-2" />
-                                      View Details
-                                    </Button>
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={() => openAIModal(record)}
-                                    >
-                                      <Brain className="h-4 w-4 mr-2" />
-                                      AI Analytics
-                                    </Button>
-                                    {record.fileUrl && (
+                              <CardHeader className="pb-3">
+                                {/* Record Header - Stack on mobile */}
+                                <div className="space-y-3">
+                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <div className="flex items-center space-x-2 min-w-0">
+                                      {getRecordIcon(record.recordType)}
+                                      <CardTitle className="text-lg truncate">{record.title}</CardTitle>
+                                      <Badge className={getRecordTypeColor(record.recordType)}>
+                                        {getRecordTypeLabel(record.recordType)}
+                                      </Badge>
+                                    </div>
+                                    
+                                    {/* Action Buttons - Stack on mobile */}
+                                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                                       <Button 
                                         variant="outline" 
                                         size="sm"
-                                        onClick={() => openFileViewer(record.fileUrl!, record.fileName || 'Unknown File')}
+                                        onClick={() => openDetailsViewer(record)}
+                                        className="w-full sm:w-auto"
                                       >
-                                        <FileText className="h-4 w-4 mr-2" />
-                                        View File
+                                        <Eye className="h-4 w-4 mr-2" />
+                                        View Details
                                       </Button>
-                                    )}
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => openAIModal(record)}
+                                        className="w-full sm:w-auto"
+                                      >
+                                        <Brain className="h-4 w-4 mr-2" />
+                                        AI Analytics
+                                      </Button>
+                                      {record.fileUrl && (
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm"
+                                          onClick={() => openFileViewer(record.fileUrl!, record.fileName || 'Unknown File')}
+                                          className="w-full sm:w-auto"
+                                        >
+                                          <FileText className="h-4 w-4 mr-2" />
+                                          View File
+                                        </Button>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  <div className="flex items-center space-x-4 text-sm">
-                                    <div className="flex items-center space-x-1">
-                                      <User className="h-4 w-4" />
-                                      <span>{record.patientName}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-1">
-                                      <Calendar className="h-4 w-4" />
-                                      <span>{formatDate(record.recordDate)}</span>
-                                    </div>
-                                    {record.doctorName && (
+                                  
+                                  {/* Record Metadata - Stack on mobile */}
+                                  <div className="text-sm text-muted-foreground">
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                                       <div className="flex items-center space-x-1">
-                                        <Stethoscope className="h-4 w-4" />
-                                        <span>{record.doctorName}</span>
+                                        <User className="h-4 w-4" />
+                                        <span className="truncate">{record.patientName}</span>
                                       </div>
-                                    )}
+                                      <div className="flex items-center space-x-1">
+                                        <Calendar className="h-4 w-4" />
+                                        <span>{formatDate(record.recordDate)}</span>
+                                      </div>
+                                      {record.doctorName && (
+                                        <div className="flex items-center space-x-1">
+                                          <Stethoscope className="h-4 w-4" />
+                                          <span className="truncate">{record.doctorName}</span>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </CardHeader>
-                              <CardContent>
+                              <CardContent className="pt-0">
                                 <p className="text-sm text-muted-foreground line-clamp-3">
                                   {record.description}
                                 </p>

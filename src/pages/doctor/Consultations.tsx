@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,11 +13,107 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getDoctorConsultations, Consultation } from '@/services/consultationService';
 import { getPatientRecordsForDoctor } from '@/services/patientRecordsService';
 import { getSharedRecordsForConsultation, type SharedRecord, debugConsentSystem } from '@/services/recordSharingService';
-import AIAnalysisModal from '@/components/ai/AIAnalysisModal';
+import { AIAnalysisModal } from '@/components/ai/AIAnalysisModal';
 import { toast } from '@/hooks/use-toast';
 import CreatePrescription from '@/components/prescription/CreatePrescription';
 import AIAnalysisTags from '@/components/ai/AIAnalysisTags';
 import { supabase } from '@/integrations/supabase/client';
+
+// Render modals using React Portal outside the main component
+const ModalPortal = ({ isAIModalOpen, onCloseAIModal, selectedRecordForAI, onCloseFileViewer, viewingFile }) => {
+  console.log('🔍 ModalPortal rendering with states:', {
+    isAIModalOpen,
+    hasSelectedRecord: !!selectedRecordForAI,
+    hasViewingFile: !!viewingFile
+  });
+  
+  return (
+    <>
+      {/* AI Analysis Modal - Only render when both modal is open and record is selected */}
+      {isAIModalOpen && selectedRecordForAI && createPortal(
+        <AIAnalysisModal
+          isOpen={true}
+          onClose={() => {
+            console.log('🔍 Closing AI Modal');
+            onCloseAIModal();
+          }}
+          recordId={selectedRecordForAI?.id || ''}
+          recordTitle={selectedRecordForAI?.title || ''}
+          recordType={selectedRecordForAI?.type || ''}
+          recordDescription={selectedRecordForAI?.description}
+          fileUrl={selectedRecordForAI?.fileUrl}
+          fileName={selectedRecordForAI?.fileName}
+          patientId={selectedRecordForAI?.userId}
+        />,
+        document.body
+      )}
+
+      {/* File Viewer */}
+      {viewingFile && createPortal(
+        <Dialog open={!!viewingFile} onOpenChange={() => onCloseFileViewer()}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>{viewingFile.name}</DialogTitle>
+            </DialogHeader>
+            <div className="mt-4">
+              {viewingFile.type === 'pdf' ? (
+                <iframe 
+                  src={viewingFile.url} 
+                  width="100%" 
+                  height="500px" 
+                  title={viewingFile.name}
+                  className="border rounded"
+                />
+              ) : viewingFile.type === 'image' ? (
+                <div className="flex flex-col items-center">
+                  <img 
+                    src={viewingFile.url} 
+                    alt={viewingFile.name} 
+                    className="max-h-[500px] object-contain"
+                    onError={(e) => {
+                      console.error('Image failed to load:', e);
+                      e.currentTarget.style.display = 'none';
+                      document.getElementById('image-error')?.classList.remove('hidden');
+                    }}
+                  />
+                  <div id="image-error" className="hidden mt-4 text-center">
+                    <p className="text-red-500">Failed to load image. Please try opening in a new tab.</p>
+                    <div className="mt-2 flex justify-center space-x-4">
+                      <Button onClick={() => window.open(viewingFile.url, '_blank')}>
+                        Open in New Tab
+                      </Button>
+                      <Button variant="outline" onClick={() => {
+                        const a = document.createElement('a');
+                        a.href = viewingFile.url;
+                        a.download = viewingFile.name;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      }}>
+                        Download
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p>This file type cannot be previewed.</p>
+                  <Button 
+                    className="mt-4" 
+                    onClick={() => window.open(viewingFile.url, '_blank')}
+                  >
+                    Open in New Tab
+                  </Button>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>,
+        document.body
+        )}
+    </>
+  );
+};
 
 const DoctorConsultations = () => {
   const { user } = useAuth();
@@ -37,6 +134,16 @@ const DoctorConsultations = () => {
     userId?: string;
   } | null>(null);
   const [viewingFile, setViewingFile] = useState<{ url: string; name: string; type: string } | null>(null);
+
+  // Debug modal states
+  console.log('🔍 Modal states:', { 
+    isAIModalOpen, 
+    selectedRecordForAI: selectedRecordForAI?.id, 
+    viewingFile: viewingFile?.name 
+  });
+  
+  // Debug modal rendering
+  console.log('🔍 About to render modals - isAIModalOpen:', isAIModalOpen, 'selectedRecordForAI:', !!selectedRecordForAI, 'viewingFile:', !!viewingFile);
 
   useEffect(() => {
     if (user?.id) {
@@ -129,42 +236,102 @@ const DoctorConsultations = () => {
   };
 
   const openFileViewer = async (fileUrl: string, fileName: string) => {
+    console.log('🔍 Opening File Viewer for:', { fileUrl, fileName });
+    
     try {
       const fileType = getFileType(fileName);
+      console.log('🔍 Detected file type:', fileType);
       
       // If it's already a full URL, use it directly
       let displayUrl = fileUrl;
       
       // Check if it's a Supabase storage path and try different bucket names
       if (fileUrl && !fileUrl.startsWith('http')) {
+        console.log('🔍 File URL is not HTTP, trying Supabase buckets...');
         // Try different possible bucket names
         const possibleBuckets = ['medical-files', 'prescriptions', 'consultation-notes', 'health-records', 'files'];
         
         for (const bucket of possibleBuckets) {
           try {
+            console.log(`🔍 Trying bucket: ${bucket}`);
             const { data } = supabase.storage
               .from(bucket)
               .getPublicUrl(fileUrl);
             
             if (data.publicUrl) {
               displayUrl = data.publicUrl;
+              console.log(`✅ Found public URL in bucket ${bucket}:`, displayUrl);
               break;
             }
           } catch (bucketError) {
+            console.log(`❌ Bucket ${bucket} failed:`, bucketError);
             // Continue to next bucket
           }
         }
+      } else {
+        console.log('🔍 Using original URL:', displayUrl);
       }
       
+      console.log('🔍 Setting viewing file:', { url: displayUrl, name: fileName, type: fileType });
       setViewingFile({ url: displayUrl, name: fileName, type: fileType });
+      console.log('✅ File viewer state set');
     } catch (error) {
+      console.error('❌ Error in openFileViewer:', error);
       // Still try to open with the original URL
       const fileType = getFileType(fileName);
       setViewingFile({ url: fileUrl, name: fileName, type: fileType });
     }
   };
 
-  const openAIModal = (record: SharedRecord) => {
+  const openAIModal = async (record: SharedRecord) => {
+    console.log('🔍 Opening AI Modal for record:', record);
+    console.log('🔍 Record ID being passed:', record.id);
+    console.log('🔍 Record ID type:', typeof record.id);
+    console.log('🔍 Selected consultation:', selectedConsultation);
+    console.log('🔍 Patient ID (profile ID):', selectedConsultation?.patient_id);
+    console.log('🔍 Patient ID type:', typeof selectedConsultation?.patient_id);
+    console.log('🔍 This should be the same record ID that works in patient view');
+    
+    // Check what the current user ID is (for comparison)
+    console.log('🔍 Current user ID (doctor):', user?.id);
+    console.log('🔍 Patient ID from consultation:', selectedConsultation?.patient_id);
+    console.log('🔍 Are they the same?', user?.id === selectedConsultation?.patient_id);
+    
+    // Get the patient's auth user ID from their profile
+    let patientAuthUserId = null;
+    if (selectedConsultation?.patient_id) {
+      try {
+        console.log('🔍 Fetching patient profile for ID:', selectedConsultation.patient_id);
+        const { data: patientProfile, error: patientError } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('id', selectedConsultation.patient_id)
+          .single();
+          
+        if (patientError) {
+          console.error('❌ Error fetching patient profile:', patientError);
+        } else if (patientProfile) {
+          patientAuthUserId = (patientProfile as any).user_id;
+          console.log('✅ Patient auth user ID:', patientAuthUserId);
+        }
+      } catch (error) {
+        console.error('❌ Error in openAIModal:', error);
+      }
+    }
+    
+    // Log the record data that will be passed to the modal
+    const recordData = {
+      id: record.id,
+      title: record.title,
+      type: record.record_type,
+      description: record.title,
+      fileUrl: record.file_url,
+      fileName: record.file_name,
+      userId: patientAuthUserId // Use auth user ID instead of profile ID
+    };
+    console.log('🔍 Record data being passed to modal:', recordData);
+    
+    // First set the selected record
     setSelectedRecordForAI({
       id: record.id,
       title: record.title,
@@ -172,9 +339,16 @@ const DoctorConsultations = () => {
       description: record.title,
       fileUrl: record.file_url,
       fileName: record.file_name,
-      userId: selectedConsultation?.patient_id
+      userId: patientAuthUserId // Use auth user ID instead of profile ID
     });
-    setIsAIModalOpen(true);
+    
+    // Then set the modal to open
+    setTimeout(() => {
+      setIsAIModalOpen(true);
+      console.log('✅ AI Modal state set to open');
+    }, 50);
+    
+    console.log('✅ Selected record for AI set:', record.id);
   };
 
   const getStatusColor = (status: string) => {
@@ -235,9 +409,31 @@ const DoctorConsultations = () => {
     ['completed', 'cancelled'].includes(c.status)
   );
 
+  // Render the ModalPortal component
+  const renderModalPortal = () => {
+    console.log('🔍 Modal states:', { isAIModalOpen, selectedRecordForAI, viewingFile });
+    return (
+      <ModalPortal
+        isAIModalOpen={isAIModalOpen}
+        onCloseAIModal={() => {
+          console.log('Closing AI Modal');
+          setIsAIModalOpen(false);
+          setSelectedRecordForAI(null);
+        }}
+        selectedRecordForAI={selectedRecordForAI}
+        viewingFile={viewingFile}
+        onCloseFileViewer={() => {
+          console.log('Closing File Viewer');
+          setViewingFile(null);
+        }}
+      />
+    );
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
+        {renderModalPortal()}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">My Consultations</h1>
@@ -256,6 +452,7 @@ const DoctorConsultations = () => {
   if (showPrescriptionForm && selectedConsultation) {
     return (
       <div className="space-y-6">
+        {renderModalPortal()}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Create Prescription</h1>
@@ -291,6 +488,7 @@ const DoctorConsultations = () => {
   if (selectedConsultation) {
     return (
       <div className="space-y-6">
+        {renderModalPortal()}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Consultation Details</h1>
@@ -456,7 +654,18 @@ const DoctorConsultations = () => {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => openAIModal(record)}
+                            onClick={() => {
+                              console.log('🔍 AI Analytics button clicked for record:', record);
+                              if (record) {
+                                openAIModal(record);
+                              } else {
+                                toast({
+                                  title: "Error",
+                                  description: "Could not analyze this record. Please try again.",
+                                  variant: "destructive"
+                                });
+                              }
+                            }}
                             className="flex-1 sm:flex-none lg:flex-none justify-center sm:justify-start lg:justify-start h-10 sm:h-8 lg:h-8 touch-manipulation"
                           >
                             <Brain className="h-4 w-4 mr-2" />
@@ -467,7 +676,18 @@ const DoctorConsultations = () => {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => openFileViewer(record.file_url || '', record.file_name || 'Unknown File')}
+                              onClick={() => {
+                                console.log('🔍 View File button clicked for record:', record);
+                                if (record.file_url) {
+                                  openFileViewer(record.file_url, record.file_name || 'Unknown File');
+                                } else {
+                                  toast({
+                                    title: "No File Available",
+                                    description: "This record does not have an associated file to view.",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
                               className="flex-1 sm:flex-none lg:flex-none justify-center sm:justify-start lg:justify-start h-10 sm:h-8 lg:h-8 touch-manipulation"
                             >
                               <Eye className="h-4 w-4 mr-2" />
@@ -495,8 +715,13 @@ const DoctorConsultations = () => {
   }
 
   const FileViewer = () => {
-    if (!viewingFile) return null;
+    console.log('🔍 FileViewer component rendering, viewingFile:', viewingFile);
+    if (!viewingFile) {
+      console.log('🔍 No viewingFile, returning null');
+      return null;
+    }
 
+    console.log('🔍 Rendering FileViewer modal for:', viewingFile);
     return (
       <Dialog open={!!viewingFile} onOpenChange={() => setViewingFile(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
@@ -603,15 +828,16 @@ const DoctorConsultations = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">My Consultations</h1>
-          <p className="text-muted-foreground">
-            Manage your patient consultations and medical records access
-          </p>
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">My Consultations</h1>
+            <p className="text-muted-foreground">
+              Manage your patient consultations and medical records access
+            </p>
+          </div>
         </div>
-      </div>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -828,155 +1054,33 @@ const DoctorConsultations = () => {
         </TabsContent>
       </Tabs>
 
-      {/* File Viewer Modal */}
-      {viewingFile && (
-        <Dialog open={!!viewingFile} onOpenChange={() => setViewingFile(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                {viewingFile.name}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 overflow-auto">
-              {viewingFile.type === 'pdf' && (
-                <div className="w-full h-[70vh] border rounded-lg">
-                  <iframe
-                    src={viewingFile.url}
-                    className="w-full h-full border-0 rounded-lg"
-                    title={viewingFile.name}
-                    onError={(e) => {
-                      console.error('Error loading PDF:', e);
-                    }}
-                  />
-                </div>
-              )}
-              {viewingFile.type === 'image' && (
-                <div className="flex items-center justify-center h-[70vh] bg-gray-50 rounded-lg">
-                  <div className="text-center">
-                    <img
-                      src={viewingFile.url}
-                      alt={viewingFile.name}
-                      className="max-w-full max-h-[60vh] object-contain mx-auto"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                    <div className="mt-4 space-x-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => window.open(viewingFile.url, '_blank')}
-                      >
-                        Open in New Tab
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          const link = document.createElement('a');
-                          link.href = viewingFile.url;
-                          link.download = viewingFile.name;
-                          link.click();
-                        }}
-                      >
-                        Download
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500 break-all">
-                      URL: {viewingFile.url}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {viewingFile.type === 'document' && (
-                <div className="flex items-center justify-center h-[70vh] bg-gray-100 rounded-lg">
-                  <div className="text-center">
-                    <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                    <p className="text-lg font-medium">Document Preview</p>
-                    <p className="text-sm text-gray-500 mb-4">{viewingFile.name}</p>
-                    <p className="text-sm text-gray-400 mb-4">
-                      Document preview not available in browser.
-                    </p>
-                    <Button 
-                      onClick={() => window.open(viewingFile.url, '_blank')}
-                      variant="outline"
-                    >
-                      Open in New Tab
-                    </Button>
-                  </div>
-                </div>
-              )}
-              {viewingFile.type === 'file' && (
-                <div className="flex items-center justify-center h-[70vh] bg-gray-100 rounded-lg">
-                  <div className="text-center">
-                    <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                    <p className="text-lg font-medium">File Preview</p>
-                    <p className="text-sm text-gray-500 mb-4">{viewingFile.name}</p>
-                    <p className="text-sm text-gray-400 mb-4">
-                      File preview not available in browser.
-                    </p>
-                    <Button 
-                      onClick={() => window.open(viewingFile.url, '_blank')}
-                      variant="outline"
-                    >
-                      Open in New Tab
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="flex justify-between items-center pt-4 border-t">
-              <p className="text-sm text-gray-500 truncate max-w-md">
-                URL: {viewingFile.url}
-              </p>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => window.open(viewingFile.url, '_blank')}
-                >
-                  Open in New Tab
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = viewingFile.url;
-                    link.download = viewingFile.name;
-                    link.click();
-                  }}
-                >
-                  Download
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
 
-      {/* AI Analysis Modal */}
-      {selectedRecordForAI && (
-        <AIAnalysisModal
-          isOpen={isAIModalOpen}
-          onClose={() => {
-            setIsAIModalOpen(false);
-            setSelectedRecordForAI(null);
-          }}
-          recordId={selectedRecordForAI.id}
-          recordTitle={selectedRecordForAI.title}
-          recordType={selectedRecordForAI.type}
-          recordDescription={selectedRecordForAI.description}
-          fileUrl={selectedRecordForAI.fileUrl}
-          fileName={selectedRecordForAI.fileName}
-          patientId={selectedRecordForAI.userId}
-        />
-      )}
-
-      {/* File Viewer Modal */}
-      <FileViewer />
-    </div>
+      </div>
+      
+      {/* Render modals using Portal */}
+      {(() => {
+        console.log('🔍 About to render ModalPortal with states:', {
+          isAIModalOpen,
+          hasSelectedRecord: !!selectedRecordForAI,
+          hasViewingFile: !!viewingFile
+        });
+        return null;
+      })()}
+      <ModalPortal 
+        isAIModalOpen={isAIModalOpen}
+        onCloseAIModal={() => {
+          console.log('Closing AI Modal');
+          setIsAIModalOpen(false);
+          setSelectedRecordForAI(null);
+        }}
+        selectedRecordForAI={selectedRecordForAI}
+        viewingFile={viewingFile}
+        onCloseFileViewer={() => {
+          console.log('Closing File Viewer');
+          setViewingFile(null);
+        }}
+      />
+    </>
   );
 };
 

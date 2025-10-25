@@ -28,7 +28,7 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="bg-card border-b border-border shadow-soft">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border shadow-soft">
       <div className="px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0" style={{ width: 64 }}>
           {/* Hamburger placed before logo */}
