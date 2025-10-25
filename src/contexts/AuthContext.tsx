@@ -238,7 +238,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setSession(null);
         setIsLoading(false);
         clearCorruptedAuth();
-        navigate('/login');
+        navigate('/auth');
       } else if (event === 'TOKEN_REFRESHED' && session) {
         console.log('🔐 Token refreshed');
         setSession(session);
@@ -385,7 +385,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         description: "You have been successfully logged out.",
       });
       
-      navigate('/login');
+      navigate('/auth');
     } catch (error) {
       console.error('🔐 Logout failed:', error);
       setIsLoading(false);

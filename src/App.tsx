@@ -71,6 +71,7 @@ const App = () => {
                 <Routes>
                         <Route path="/" element={<Index />} />
                         <Route path="/auth" element={<><Auth /><AuthDebug /></>} />
+                        <Route path="/login" element={<><Auth /><AuthDebug /></>} />
                 
                 {/* Patient Routes */}
                 <Route path="/dashboard" element={
