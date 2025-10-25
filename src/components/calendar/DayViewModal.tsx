@@ -297,15 +297,17 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
                                     </div>
                                   </div>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100 hover:text-red-600"
-                                  onClick={(e) => handleEventDelete(event.id, e)}
-                                  title="Delete event"
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
+                                {!isPatientView && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100 hover:text-red-600"
+                                    onClick={(e) => handleEventDelete(event.id, e)}
+                                    title="Delete event"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                )}
                               </div>
                               {event.patient_name && (
                                 <div className="text-xs opacity-75 mt-1">
@@ -398,15 +400,17 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
                                     </span>
                                   </div>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100 hover:text-red-600"
-                                  onClick={(e) => handleEventDelete(event.id, e)}
-                                  title="Delete event"
-                                >
-                                  <X className="h-2 w-2" />
-                                </Button>
+                                {!isPatientView && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100 hover:text-red-600"
+                                    onClick={(e) => handleEventDelete(event.id, e)}
+                                    title="Delete event"
+                                  >
+                                    <X className="h-2 w-2" />
+                                  </Button>
+                                )}
                               </div>
                               
                               {event.patient_name && (
