@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { format, addMinutes } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -176,10 +176,13 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+  
+  // Ref to prevent infinite loops and shaking
+  const isUpdatingTime = useRef(false);
 
   // State for blocked time slots
-  const [blockedTimeSlots, setBlockedTimeSlots] = React.useState<any[]>([]);
-  const [refreshKey, setRefreshKey] = React.useState(0);
+  const [blockedTimeSlots, setBlockedTimeSlots] = useState<any[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Record sharing states
   const [autoMatchedRecords, setAutoMatchedRecords] = useState<SharedRecord[]>([]);
@@ -829,18 +832,11 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
   }, [selectedDate]);
 
   useEffect(() => {
-    if (selectedTime) {
-      console.log('🕐 Setting selected time in form:', selectedTime);
-      setFormData(prev => ({
-        ...prev,
-        time: selectedTime
-      }));
-    }
-  }, [selectedTime]);
-
-  useEffect(() => {
     console.log('🔍 PatientSchedulingModal useEffect - editingAppointment:', editingAppointment);
     console.log('🔍 PatientSchedulingModal useEffect - selectedDate:', selectedDate);
+    console.log('🔍 PatientSchedulingModal useEffect - selectedTime:', selectedTime);
+    console.log('🔍 PatientSchedulingModal useEffect - selectedTime type:', typeof selectedTime);
+    console.log('🔍 PatientSchedulingModal useEffect - selectedTime length:', selectedTime?.length);
     
     if (editingAppointment) {
       const duration = Math.round((editingAppointment.end.getTime() - editingAppointment.start.getTime()) / (1000 * 60));
@@ -871,25 +867,50 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
       };
       console.log('🔍 Setting default form data:', formData);
       console.log('🔍 selectedTime in default form data:', selectedTime);
+      console.log('🔍 formData.time will be set to:', formData.time);
       setFormData(formData);
     }
   }, [editingAppointment, selectedDate, selectedTime]);
 
+  // Debug: Log form data changes
+  useEffect(() => {
+    console.log('🔍 Form data changed:', formData);
+    console.log('🔍 Form data time field:', formData.time);
+    console.log('🔍 Form data time type:', typeof formData.time);
+  }, [formData]);
+
   // Regenerate slots when date, duration, doctor, appointment type, or existing appointments change
   useEffect(() => {
-    if (formData.date && formData.duration) {
+    if (formData.date && formData.duration && !isUpdatingTime.current) {
       console.log('🔄 Regenerating time slots for date:', formData.date, 'duration:', formData.duration, 'doctor:', formData.doctor_id, 'type:', formData.appointment_type);
+      console.log('🔄 Current formData.time:', formData.time);
+      console.log('🔄 selectedTime prop:', selectedTime);
       
-      // Check if currently selected time is still available
-      if (formData.time) {
+      // If we have a selectedTime from day view click, prioritize it (but only if not editing)
+      if (selectedTime && selectedTime !== formData.time && !editingAppointment) {
+        console.log('🔄 selectedTime from day view is different from formData.time, updating formData.time to:', selectedTime);
+        isUpdatingTime.current = true;
+        setFormData(prev => ({ ...prev, time: selectedTime }));
+        setTimeout(() => {
+          isUpdatingTime.current = false;
+        }, 100);
+        return;
+      }
+      
+      // Check if currently selected time is still available (but not during editing)
+      if (formData.time && !editingAppointment) {
         const isStillAvailable = checkTimeSlotAvailability(formData.time);
         if (!isStillAvailable) {
           console.log('⚠️ Selected time is no longer available, clearing selection');
+          isUpdatingTime.current = true;
           setFormData(prev => ({ ...prev, time: '' }));
+          setTimeout(() => {
+            isUpdatingTime.current = false;
+          }, 100);
         }
       }
     }
-  }, [formData.date, formData.duration, formData.doctor_id, formData.appointment_type, existingAppointments, checkTimeSlotAvailability, formData.time]);
+  }, [formData.date, formData.duration, formData.doctor_id, formData.appointment_type, existingAppointments, checkTimeSlotAvailability, selectedTime, editingAppointment]);
 
   // Auto-match records when title changes
   useEffect(() => {
@@ -1354,8 +1375,8 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
             />
           </div>
 
-          {/* Health Records Sharing Section - Only for consultations */}
-          {formData.appointment_type === 'consultation' && (
+          {/* Health Records Sharing Section - Only for consultations and new appointments */}
+          {formData.appointment_type === 'consultation' && !editingAppointment && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -1696,8 +1717,8 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
             />
           </div>
 
-          {/* Health Records Sharing Section - Only for consultations */}
-          {formData.appointment_type === 'consultation' && (
+          {/* Health Records Sharing Section - Only for consultations and new appointments */}
+          {formData.appointment_type === 'consultation' && !editingAppointment && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>

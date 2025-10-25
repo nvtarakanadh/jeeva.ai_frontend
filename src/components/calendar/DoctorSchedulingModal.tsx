@@ -201,6 +201,9 @@ const DoctorSchedulingModal: React.FC<DoctorSchedulingModalProps> = React.memo((
     if (formData.date && formData.duration) {
       // Force re-render of slots when dependencies change
       console.log('🔄 Regenerating time slots for date:', formData.date, 'duration:', formData.duration);
+      console.log('🔄 Current formData.time:', formData.time);
+      console.log('🔄 editingEvent:', editingEvent);
+      console.log('🔄 editingEvent.start:', editingEvent?.start);
       
       // Check if currently selected time is still available (but not during editing)
       if (formData.time && !editingEvent) {

@@ -32,6 +32,85 @@ const PatientDashboard = () => {
   const [doctors, setDoctors] = useState<Array<{ id: string; name: string; specialization?: string }>>([]);
   const [testCenters, setTestCenters] = useState<Array<{ id: string; name: string; address?: string }>>([]);
 
+  // Function to reload appointments
+  const reloadAppointments = async () => {
+    if (!user?.id) return;
+    
+    try {
+      // Get patient profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('role', 'patient')
+        .single() as { data: { id: string } | null; error: any };
+
+      if (profileError || !profileData) {
+        console.error('❌ Profile error:', profileError);
+        return;
+      }
+
+      // Load appointments
+      const { data: consultations, error: consultationError } = await supabase
+        .from('consultations')
+        .select(`
+          id,
+          consultation_date,
+          consultation_time,
+          end_time,
+          duration_minutes,
+          reason,
+          notes,
+          status,
+          doctor_id,
+          profiles!consultations_doctor_id_fkey(full_name)
+        `)
+        .eq('patient_id', profileData.id)
+        .order('consultation_date', { ascending: true });
+
+      if (consultationError) {
+        console.error('❌ Error loading appointments:', consultationError);
+        return;
+      }
+
+      // Format appointments
+      const formattedAppointments: PatientAppointment[] = consultations?.map((consultation: any) => {
+        const consultationDate = new Date(consultation.consultation_date);
+        const [hours, minutes] = consultation.consultation_time.split(':').map(Number);
+        const startTime = new Date(consultationDate);
+        startTime.setHours(hours, minutes, 0, 0);
+        
+        let endTime: Date;
+        if (consultation.end_time) {
+          const [endHours, endMinutes] = consultation.end_time.split(':').map(Number);
+          endTime = new Date(consultationDate);
+          endTime.setHours(endHours, endMinutes, 0, 0);
+        } else {
+          const duration = consultation.duration_minutes || 30;
+          endTime = new Date(startTime.getTime() + duration * 60000);
+        }
+        
+        return {
+          id: consultation.id,
+          title: consultation.reason || 'Consultation',
+          start: startTime,
+          end: endTime,
+          appointment_type: 'consultation' as const,
+          status: consultation.status as 'pending' | 'confirmed' | 'cancelled' | 'scheduled',
+          doctor_name: consultation.profiles?.full_name || 'Dr. Unknown',
+          notes: consultation.notes || '',
+          patient_id: user.id,
+          doctor_id: consultation.doctor_id
+        };
+      }) || [];
+
+      setAppointments(formattedAppointments);
+      console.log('✅ Appointments reloaded:', formattedAppointments.length);
+    } catch (error) {
+      console.error('❌ Error reloading appointments:', error);
+    }
+  };
+
   useEffect(() => {
     if (!user?.id) {
           setLoading(false);
@@ -199,14 +278,31 @@ const PatientDashboard = () => {
     console.log('🕐 Time slot clicked:', timeSlot);
     console.log('🕐 Time slot toString:', timeSlot.toString());
     console.log('🕐 Time slot toTimeString:', timeSlot.toTimeString());
-    const timeString = timeSlot.toTimeString().slice(0, 5); // Extract HH:MM format
+    
+    // Extract time in HH:MM format
+    const hours = timeSlot.getHours().toString().padStart(2, '0');
+    const minutes = timeSlot.getMinutes().toString().padStart(2, '0');
+    const timeString = `${hours}:${minutes}`;
+    
     console.log('🕐 Extracted time:', timeString);
     console.log('🕐 Setting selectedDate to:', timeSlot);
     console.log('🕐 Setting selectedTime to:', timeString);
+    console.log('🕐 Current selectedTime state before update:', selectedTime);
+    
+    // Close day view modal first
+    setIsDayViewOpen(false);
+    setDayViewDate(null);
+    
+    // Set the time and date, then open the scheduling modal
     setSelectedDate(timeSlot);
     setSelectedTime(timeString);
     setEditingAppointment(null);
-    setIsSchedulingModalOpen(true);
+    
+    // Use setTimeout to ensure state updates are processed before opening modal
+    setTimeout(() => {
+      console.log('🕐 Opening scheduling modal with selectedTime:', timeString);
+      setIsSchedulingModalOpen(true);
+    }, 100);
   };
 
   const handleCancelAppointment = async (appointmentId: string) => {
@@ -377,6 +473,10 @@ const PatientDashboard = () => {
         onSchedule={async (formData) => {
           try {
             console.log('📅 Scheduling appointment:', formData);
+            
+            // Reload appointments to show the new one immediately
+            await reloadAppointments();
+            
             // Show success message
             toast({
               title: "Appointment Scheduled",

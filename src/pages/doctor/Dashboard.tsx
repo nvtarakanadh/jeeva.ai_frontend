@@ -618,7 +618,8 @@ const DoctorDashboard = () => {
       
       const newEvent = await ScheduleService.createConsultation(consultationData);
       if (newEvent) {
-        setEvents(prev => [...prev, newEvent]);
+        // Reload events to ensure the calendar shows the new appointment immediately
+        await loadEvents();
         setCalendarKey(prev => prev + 1);
         setIsScheduleModalOpen(false);
         alert(`${scheduleData.event_type === 'consultation' ? 'Consultation' : 'Event'} "${newEvent.title}" created successfully!`);
@@ -1206,7 +1207,23 @@ const DoctorDashboard = () => {
           isPatientView={false}
           doctorName={user?.name}
           onSlotClick={(slotTime) => {
-            // Open the standalone DoctorSchedulingModal with pre-filled time
+            console.log('🕐 Doctor time slot clicked:', slotTime);
+            console.log('🕐 Doctor time slot toString:', slotTime.toString());
+            console.log('🕐 Doctor time slot toTimeString:', slotTime.toTimeString());
+            
+            // Extract time in HH:MM format
+            const hours = slotTime.getHours().toString().padStart(2, '0');
+            const minutes = slotTime.getMinutes().toString().padStart(2, '0');
+            const timeString = `${hours}:${minutes}`;
+            
+            console.log('🕐 Doctor extracted time:', timeString);
+            console.log('🕐 Doctor setting selectedDate to:', slotTime);
+            
+            // Close day view modal first
+            setIsDayViewOpen(false);
+            setDayViewDate(null);
+            
+            // Set the date and create editing event with the correct time
             setSelectedDate(slotTime);
             setEditingEvent({
               id: 'temp-slot',
@@ -1219,7 +1236,12 @@ const DoctorDashboard = () => {
               doctorId: user?.id || '',
               patientId: ''
             });
-            setIsScheduleModalOpen(true);
+            
+            // Use setTimeout to ensure state updates are processed before opening modal
+            setTimeout(() => {
+              console.log('🕐 Opening doctor scheduling modal with time:', timeString);
+              setIsScheduleModalOpen(true);
+            }, 100);
           }}
         />
       )}
