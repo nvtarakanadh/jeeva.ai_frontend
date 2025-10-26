@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { format, addMinutes } from 'date-fns';
+import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +28,26 @@ import {
 } from 'lucide-react';
 import { PatientAppointment } from './PatientCalendarComponent';
 import { autoMatchRecords, createConsultationWithSharedRecords, type SharedRecord } from '@/services/recordSharingService';
+
+// Type for consultation data from Supabase
+interface ConsultationData {
+  id: string;
+  patient_id: string | null;
+  doctor_id: string;
+  consultation_date: string;
+  consultation_time: string;
+  end_time?: string;
+  duration_minutes?: number;
+  reason?: string;
+  notes?: string;
+  status?: string;
+}
+
+// Type for profile data from Supabase
+interface ProfileData {
+  id: string;
+  user_id: string;
+}
 import { useAuth } from '@/contexts/AuthContext';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Sparkles } from 'lucide-react';
@@ -158,6 +179,22 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
   console.log('🔍 PatientSchedulingModal selectedDate:', selectedDate);
   console.log('🔍 PatientSchedulingModal selectedTime:', selectedTime);
   
+  // Debug: Log appointments by doctor
+  console.log('🔍 Debug: Appointments by doctor:', existingAppointments.reduce((acc, apt) => {
+    acc[apt.doctor_id] = (acc[apt.doctor_id] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>));
+  
+  // Debug: Log all appointments with details
+  console.log('🔍 Debug: All appointments details:', existingAppointments.map(apt => ({
+    id: apt.id,
+    title: apt.title,
+    doctor_id: apt.doctor_id,
+    start: apt.start,
+    end: apt.end,
+    appointment_type: apt.appointment_type
+  })));
+  
   const initialFormData: PatientScheduleData = {
     title: '',
     appointment_type: 'consultation',
@@ -173,6 +210,96 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
   console.log('🔍 Initial form data with selectedTime:', initialFormData);
   
   const [formData, setFormData] = useState<PatientScheduleData>(initialFormData);
+  
+  // Debug: Log appointments for current doctor (after formData is initialized)
+  React.useEffect(() => {
+    if (formData.doctor_id) {
+      const doctorAppointments = existingAppointments.filter(apt => apt.doctor_id === formData.doctor_id);
+      console.log('🔍 Debug: Appointments for selected doctor:', formData.doctor_id, doctorAppointments.length);
+      console.log('🔍 Debug: Doctor appointments details:', doctorAppointments.map(apt => ({
+        id: apt.id,
+        title: apt.title,
+        start: apt.start,
+        end: apt.end,
+        doctor_id: apt.doctor_id
+      })));
+    }
+  }, [formData.doctor_id, existingAppointments]);
+  
+  // Debug: Add test function to window for manual testing
+  React.useEffect(() => {
+    (window as any).testBlocking = () => {
+      console.log('🧪 Testing blocking logic...');
+      console.log('All appointments:', existingAppointments.length);
+      console.log('Selected doctor:', formData.doctor_id);
+      console.log('Selected date:', formData.date);
+      
+      if (formData.doctor_id && formData.date) {
+        const doctorAppointments = existingAppointments.filter(apt => apt.doctor_id === formData.doctor_id);
+        console.log('Doctor appointments:', doctorAppointments.length);
+        
+        // Test a specific time slot
+        const testTime = '09:00';
+        const isAvailable = checkTimeSlotAvailability(testTime);
+        console.log(`Time slot ${testTime} is ${isAvailable ? 'available' : 'blocked'}`);
+      }
+    };
+    
+    // Debug: Show generated time slots
+    (window as any).showTimeSlots = () => {
+      console.log('🕐 Generated time slots:', availableSlots);
+      console.log('🕐 Available slots:', availableSlots.filter(s => s.available));
+      console.log('🕐 Blocked slots:', availableSlots.filter(s => !s.available));
+    };
+    
+    // Debug: Test blocking logic manually
+    (window as any).testBlockingLogic = () => {
+      console.log('🧪 Testing blocking logic manually...');
+      console.log('Current form data:', formData);
+      console.log('Existing appointments count:', existingAppointments.length);
+      console.log('Existing appointments:', existingAppointments);
+      
+      if (formData.doctor_id && formData.date) {
+        const doctorAppointments = existingAppointments.filter(apt => apt.doctor_id === formData.doctor_id);
+        console.log('Appointments for selected doctor:', doctorAppointments.length);
+        console.log('Doctor appointments details:', doctorAppointments);
+        
+        // Show appointment times
+        doctorAppointments.forEach(apt => {
+          console.log(`Appointment ${apt.id}: ${apt.start.toLocaleTimeString()} - ${apt.end.toLocaleTimeString()}`);
+        });
+        
+        // Test a specific time slot
+        const testTime = '09:00';
+        const isAvailable = checkTimeSlotAvailability(testTime);
+        console.log(`Time slot ${testTime} is ${isAvailable ? 'available' : 'blocked'}`);
+      } else {
+        console.log('❌ No doctor selected or no date selected');
+      }
+    };
+    
+    // Debug: Show appointments for specific date
+    (window as any).showAppointmentsForDate = (dateString) => {
+      console.log(`📅 Appointments for date: ${dateString}`);
+      const appointmentsForDate = existingAppointments.filter(apt => {
+        const aptDate = apt.start.toISOString().split('T')[0];
+        return aptDate === dateString;
+      });
+      
+      console.log(`Found ${appointmentsForDate.length} appointments for ${dateString}`);
+      appointmentsForDate.forEach((apt, index) => {
+        console.log(`Appointment ${index + 1}:`, {
+          id: apt.id,
+          title: apt.title,
+          doctor_id: apt.doctor_id,
+          start: apt.start.toLocaleString(),
+          end: apt.end.toLocaleString()
+        });
+      });
+      
+      return appointmentsForDate;
+    };
+  }, [existingAppointments, formData.doctor_id, formData.date]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
@@ -231,30 +358,28 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
     const slotStart = new Date(`${formData.date}T${timeString}`);
     const slotEnd = new Date(slotStart.getTime() + (formData.duration * 60000));
     
-    // Debug logging
+    // Debug logging (only for specific time to reduce spam)
     if (timeString === '09:00') {
       console.log('🔍 PatientSchedulingModal - Checking availability for 09:00:');
       console.log('Selected doctor_id:', formData.doctor_id);
       console.log('Appointment type:', formData.appointment_type);
-      console.log('All existing appointments:', existingAppointments);
-      console.log('All existing appointments details:', existingAppointments.map(apt => ({
-        id: apt.id,
-        title: apt.title,
-        doctor_id: apt.doctor_id,
-        start: apt.start,
-        end: apt.end
-      })));
+      console.log('All existing appointments:', existingAppointments.length);
     }
     
-    // Filter appointments by selected doctor (for consultations) or all appointments (for other types)
+    // Filter appointments by selected doctor AND date
     const relevantAppointments = existingAppointments.filter(appointment => {
+      // First filter by date
+      const appointmentDate = appointment.start.toISOString().split('T')[0];
+      const selectedDate = formData.date;
+      
+      if (appointmentDate !== selectedDate) {
+        return false; // Skip appointments not on the selected date
+      }
+      
+      // Then filter by doctor (for consultations) or all appointments (for other types)
       if (formData.appointment_type === 'consultation') {
         // For consultations, only check appointments with the selected doctor
-        const matches = appointment.doctor_id === formData.doctor_id;
-        if (timeString === '09:00') {
-          console.log(`Appointment ${appointment.id} doctor_id: ${appointment.doctor_id}, matches: ${matches}`);
-        }
-        return matches;
+        return appointment.doctor_id === formData.doctor_id;
       } else {
         // For lab tests/scanning, check all appointments (no doctor-specific filtering)
         return true;
@@ -262,13 +387,13 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
     });
     
     if (timeString === '09:00') {
-      console.log('Relevant appointments for selected doctor:', relevantAppointments);
-      console.log('Relevant appointments details:', relevantAppointments.map(apt => ({
+      console.log('Relevant appointments for selected doctor and date:', relevantAppointments.length);
+      console.log('Selected date:', formData.date);
+      console.log('Appointments on this date:', relevantAppointments.map(apt => ({
         id: apt.id,
         title: apt.title,
-        doctor_id: apt.doctor_id,
-        start: apt.start,
-        end: apt.end
+        start: apt.start.toLocaleString(),
+        end: apt.end.toLocaleString()
       })));
     }
     
@@ -286,40 +411,22 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
       const overlaps = (slotStart < appointmentEnd && slotEnd > appointmentStart);
       
       if (overlaps && timeString === '09:00') {
-        console.log('🚫 Slot blocked by appointment:', {
-          appointmentTitle: appointment.title,
-          appointmentStart,
-          appointmentEnd,
-          slotStart,
-          slotEnd
-        });
+        console.log(`🚫 Overlap detected with appointment ${appointment.id}`);
       }
       
       return overlaps;
     });
 
     // Check against blocked time slots
-    console.log(`🔍 Checking ${timeString} against ${blockedTimeSlots.length} blocked time slots`);
     const isBlockedByTimeSlots = blockedTimeSlots.some(blockedSlot => {
       const blockedStart = new Date(blockedSlot.start_time);
       const blockedEnd = new Date(blockedSlot.end_time);
       
-      console.log(`🔍 Checking blocked slot ${blockedSlot.id} (${blockedSlot.title}): ${blockedStart.toLocaleTimeString()} - ${blockedEnd.toLocaleTimeString()}`);
-      console.log(`🔍 Slot being checked: ${slotStart.toLocaleTimeString()} - ${slotEnd.toLocaleTimeString()}`);
-      
       // Check if the new slot overlaps with blocked time slot
       const overlaps = (slotStart < blockedEnd && slotEnd > blockedStart);
       
-      console.log(`🔍 Overlap result: ${overlaps ? 'OVERLAPS' : 'NO OVERLAP'}`);
-      
-      if (overlaps) {
-        console.log('🚫 Slot blocked by blocked time slot:', {
-          blockedTitle: blockedSlot.title,
-          blockedStart: blockedStart.toLocaleTimeString(),
-          blockedEnd: blockedEnd.toLocaleTimeString(),
-          slotStart: slotStart.toLocaleTimeString(),
-          slotEnd: slotEnd.toLocaleTimeString()
-        });
+      if (overlaps && timeString === '09:00') {
+        console.log(`🚫 Slot blocked by time slot: ${blockedSlot.title}`);
       }
       
       return overlaps;
@@ -338,7 +445,6 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
   const generateTimeSlots = useCallback(() => {
     console.log('🔄 Generating time slots...');
     console.log('🔄 Blocked time slots count:', blockedTimeSlots.length);
-    console.log('🔄 Blocked time slots:', blockedTimeSlots);
     
     const slots = [];
     const startHour = 8;
@@ -351,11 +457,6 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
         // Check if this time slot is available
         const isAvailable = checkTimeSlotAvailability(timeString);
         
-        // Log every slot for debugging
-        if (!isAvailable) {
-          console.log(`🚫 Blocked slot: ${timeString}`);
-        }
-        
         slots.push({ time: timeString, available: isAvailable });
       }
     }
@@ -363,12 +464,19 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
     console.log('🔄 Generated slots:', slots.length);
     console.log('🔄 Available slots:', slots.filter(s => s.available).length);
     console.log('🔄 Blocked slots:', slots.filter(s => !s.available).length);
-    console.log('🔄 Blocked slot times:', slots.filter(s => !s.available).map(s => s.time));
     
     return slots;
-  }, [formData.date, formData.duration, formData.doctor_id, formData.appointment_type, existingAppointments, blockedTimeSlots, refreshKey, checkTimeSlotAvailability]);
+  }, [formData.date, formData.duration, formData.doctor_id, formData.appointment_type, existingAppointments, blockedTimeSlots, refreshKey]);
 
-  const availableSlots = generateTimeSlots();
+  const availableSlots = React.useMemo(() => {
+    console.log('🔄 useMemo: Generating time slots with dependencies:', {
+      date: formData.date,
+      doctor_id: formData.doctor_id,
+      existingAppointments: existingAppointments.length,
+      blockedTimeSlots: blockedTimeSlots.length
+    });
+    return generateTimeSlots();
+  }, [formData.date, formData.duration, formData.doctor_id, formData.appointment_type, existingAppointments, blockedTimeSlots, refreshKey]);
 
   // Regenerate time slots when blocked time slots change
   React.useEffect(() => {
@@ -667,7 +775,7 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
               .from('consultations')
               .select('*')
               .eq('doctor_id', formData.doctor_id)
-              .eq('consultation_date', formData.date);
+              .eq('consultation_date', formData.date) as { data: ConsultationData[] | null, error: any };
             
             console.log('🔍 Database query completed');
             console.log('🔍 All consultations for doctor:', allConsultations);
@@ -681,17 +789,17 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
             
             if (allConsultations && allConsultations.length > 0) {
               // Show blocked time events (patient_id is null)
-              const blockedTimeEvents = allConsultations.filter(c => c.patient_id === null);
+              const blockedTimeEvents = (allConsultations as ConsultationData[]).filter(c => c.patient_id === null);
               console.log('🚫 Blocked Time Events (patient_id is null):', blockedTimeEvents);
               console.log('🚫 Number of blocked time events:', blockedTimeEvents.length);
               
               // Show consultation events (patient_id is not null)
-              const consultationEvents = allConsultations.filter(c => c.patient_id !== null);
+              const consultationEvents = (allConsultations as ConsultationData[]).filter(c => c.patient_id !== null);
               console.log('👥 Consultation Events (patient_id is not null):', consultationEvents);
               console.log('👥 Number of consultation events:', consultationEvents.length);
               
               // Process blocked time events
-              const processedBlockedSlots = blockedTimeEvents.map(consultation => {
+              const processedBlockedSlots = blockedTimeEvents.map((consultation: ConsultationData) => {
                 const startTime = new Date(`${consultation.consultation_date}T${consultation.consultation_time}`);
                 const endTime = new Date(startTime.getTime() + 30 * 60000); // 30 minutes default
                 
@@ -790,7 +898,7 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
             const { data: allBlockedEvents, error } = await supabase
               .from('consultations')
               .select('*')
-              .is('patient_id', null);
+              .is('patient_id', null) as { data: ConsultationData[] | null, error: any };
             
             console.log('🔍 All blocked time events in database:', allBlockedEvents);
             console.log('🔍 Number of blocked time events:', allBlockedEvents?.length || 0);
@@ -798,11 +906,11 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
             
             if (allBlockedEvents && allBlockedEvents.length > 0) {
               console.log('🔍 Blocked events by doctor:');
-              const byDoctor = allBlockedEvents.reduce((acc, event) => {
+              const byDoctor = (allBlockedEvents as ConsultationData[]).reduce((acc, event) => {
                 if (!acc[event.doctor_id]) acc[event.doctor_id] = [];
                 acc[event.doctor_id].push(event);
                 return acc;
-              }, {});
+              }, {} as Record<string, ConsultationData[]>);
               console.log('🔍 Grouped by doctor:', byDoctor);
             }
             
@@ -969,7 +1077,7 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
         .from('profiles')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .single() as { data: ProfileData | null, error: any };
 
       if (profileError) {
         console.error('❌ Error fetching patient profile:', profileError);
@@ -980,7 +1088,7 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
         throw new Error('Patient profile not found');
       }
 
-      console.log('✅ Patient profile found:', patientProfile.id);
+      console.log('✅ Patient profile found:', (patientProfile as ProfileData).id);
 
       // Validate required fields
       if (!formData.doctor_id) {
@@ -997,7 +1105,7 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
       }
 
       console.log('🔧 Creating consultation with data:', {
-        patient_id: patientProfile.id,
+        patient_id: (patientProfile as ProfileData).id,
         doctor_id: formData.doctor_id,
         consultation_date: formData.date,
         consultation_time: formData.time,
@@ -1008,7 +1116,7 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
 
       // Create consultation with shared records
       const consultation = await createConsultationWithSharedRecords({
-        patient_id: patientProfile.id,
+        patient_id: (patientProfile as ProfileData).id,
         doctor_id: formData.doctor_id,
         consultation_date: formData.date,
         consultation_time: formData.time,
@@ -1037,11 +1145,11 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) {
-      return;
-    }
-
-    // Check for overlapping appointments
+    console.log('🔍 Form submission started');
+    console.log('🔍 Form data:', formData);
+    console.log('🔍 Existing appointments:', existingAppointments);
+    
+    // Check for overlapping appointments FIRST (before validation to prevent shaking)
     if (formData.date && formData.time) {
       const [hours, minutes] = formData.time.split(':').map(Number);
       const appointmentDate = new Date(formData.date);
@@ -1050,13 +1158,47 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
       
       const endTime = addMinutes(startTime, formData.duration);
       
-      if (checkOverlap(startTime, endTime, existingAppointments, editingAppointment?.id)) {
-        setErrors(prev => ({
-          ...prev,
-          time: 'This time slot conflicts with an existing appointment'
-        }));
+      console.log('🔍 Checking overlap for:', { startTime, endTime });
+      
+      // Filter appointments by doctor AND date for consultations
+      const relevantAppointments = formData.appointment_type === 'consultation' && formData.doctor_id
+        ? existingAppointments.filter(appointment => {
+            // First filter by date
+            const appointmentDate = appointment.start.toISOString().split('T')[0];
+            const selectedDate = formData.date;
+            
+            if (appointmentDate !== selectedDate) {
+              return false; // Skip appointments not on the selected date
+            }
+            
+            // Then filter by doctor
+            return appointment.doctor_id === formData.doctor_id;
+          })
+        : existingAppointments.filter(appointment => {
+            // For non-consultations, still filter by date
+            const appointmentDate = appointment.start.toISOString().split('T')[0];
+            const selectedDate = formData.date;
+            return appointmentDate === selectedDate;
+          });
+      
+      console.log('🔍 Relevant appointments for overlap check:', relevantAppointments.length);
+      console.log('🔍 Selected doctor_id:', formData.doctor_id);
+      
+      if (checkOverlap(startTime, endTime, relevantAppointments, editingAppointment?.id)) {
+        console.log('🚨 Overlap detected, showing toast notification');
+        toast({
+          title: "Time Slot Already Booked",
+          description: `This time slot (${formData.time}) conflicts with an existing appointment on ${formData.date}. Please choose a different time.`,
+          variant: "destructive",
+        });
         return;
       }
+    }
+    
+    console.log('🔍 No overlap detected, proceeding with validation');
+    if (!validateForm()) {
+      console.log('🔍 Validation failed');
+      return;
     }
 
     try {
@@ -1149,7 +1291,7 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
   const allSlots = availableSlots;
 
   const content = (
-    <div className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="max-w-2xl h-auto max-h-[90vh] overflow-y-auto">
       <div className="p-6">
         <div className="flex items-center gap-2 mb-4">
             {getAppointmentTypeIcon(formData.appointment_type)}
@@ -1402,7 +1544,7 @@ const PatientSchedulingModal: React.FC<PatientSchedulingModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl h-auto max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {getAppointmentTypeIcon(formData.appointment_type)}

@@ -22,6 +22,7 @@ const PatientDashboard = () => {
   const [healthRecords, setHealthRecords] = useState({ totalRecords: 0, recentRecords: [] });
   const [activeConsents, setActiveConsents] = useState(0);
   const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
+  const [allAppointments, setAllAppointments] = useState<PatientAppointment[]>([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [isSchedulingModalOpen, setIsSchedulingModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -32,7 +33,87 @@ const PatientDashboard = () => {
   const [doctors, setDoctors] = useState<Array<{ id: string; name: string; specialization?: string }>>([]);
   const [testCenters, setTestCenters] = useState<Array<{ id: string; name: string; address?: string }>>([]);
 
-  // Function to reload appointments
+  // Function to reload ALL appointments (for blocking logic)
+  const reloadAllAppointments = async () => {
+    if (!user?.id) return;
+    
+    try {
+      // Load ALL appointments for blocking (not just patient's own)
+      const { data: allConsultations, error: allConsultationError } = await supabase
+        .from('consultations')
+        .select(`
+          id,
+          consultation_date,
+          consultation_time,
+          end_time,
+          duration_minutes,
+          reason,
+          notes,
+          status,
+          doctor_id,
+          patient_id,
+          profiles!consultations_doctor_id_fkey(full_name)
+        `)
+        .order('consultation_date', { ascending: true });
+
+      if (allConsultationError) {
+        console.error('❌ Error loading all appointments:', allConsultationError);
+        return;
+      }
+
+      // Format ALL appointments for blocking (including other patients' appointments)
+      const allFormattedAppointments: PatientAppointment[] = allConsultations?.map((consultation: any) => {
+        const consultationDate = new Date(consultation.consultation_date);
+        const [hours, minutes] = consultation.consultation_time.split(':').map(Number);
+        const startTime = new Date(consultationDate);
+        startTime.setHours(hours, minutes, 0, 0);
+        
+        let endTime: Date;
+        if (consultation.end_time) {
+          const [endHours, endMinutes] = consultation.end_time.split(':').map(Number);
+          endTime = new Date(consultationDate);
+          endTime.setHours(endHours, endMinutes, 0, 0);
+        } else {
+          const duration = consultation.duration_minutes || 30;
+          endTime = new Date(startTime.getTime() + duration * 60000);
+        }
+        
+        return {
+          id: consultation.id,
+          title: consultation.reason || 'Consultation',
+          start: startTime,
+          end: endTime,
+          appointment_type: 'consultation' as const,
+          status: consultation.status as 'pending' | 'confirmed' | 'cancelled' | 'scheduled',
+          doctor_name: consultation.profiles?.full_name || 'Dr. Unknown',
+          notes: consultation.notes || '',
+          patient_id: consultation.patient_id,
+          doctor_id: consultation.doctor_id
+        };
+      }) || [];
+
+      setAllAppointments(allFormattedAppointments);
+      console.log('✅ All appointments reloaded for blocking:', allFormattedAppointments.length);
+      console.log('✅ All appointments by doctor:', allFormattedAppointments.reduce((acc, apt) => {
+        acc[apt.doctor_id] = (acc[apt.doctor_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>));
+      
+      // Debug: Show first few appointments with details
+      console.log('🔍 First 3 appointments details:', allFormattedAppointments.slice(0, 3).map(apt => ({
+        id: apt.id,
+        title: apt.title,
+        doctor_id: apt.doctor_id,
+        patient_id: apt.patient_id,
+        start: apt.start,
+        end: apt.end
+      })));
+    } catch (error) {
+      console.error('❌ Error reloading all appointments:', error);
+    }
+  };
+
+  // Function to reload appointments (including all appointments for blocking)
   const reloadAppointments = async () => {
     if (!user?.id) return;
     
@@ -50,7 +131,7 @@ const PatientDashboard = () => {
         return;
       }
 
-      // Load appointments
+      // Load patient's own appointments
       const { data: consultations, error: consultationError } = await supabase
         .from('consultations')
         .select(`
@@ -63,6 +144,7 @@ const PatientDashboard = () => {
           notes,
           status,
           doctor_id,
+          patient_id,
           profiles!consultations_doctor_id_fkey(full_name)
         `)
         .eq('patient_id', profileData.id)
@@ -73,7 +155,30 @@ const PatientDashboard = () => {
         return;
       }
 
-      // Format appointments
+      // Load ALL appointments for blocking (not just patient's own)
+      const { data: allConsultations, error: allConsultationError } = await supabase
+        .from('consultations')
+        .select(`
+          id,
+          consultation_date,
+          consultation_time,
+          end_time,
+          duration_minutes,
+          reason,
+          notes,
+          status,
+          doctor_id,
+          patient_id,
+          profiles!consultations_doctor_id_fkey(full_name)
+        `)
+        .order('consultation_date', { ascending: true });
+
+      if (allConsultationError) {
+        console.error('❌ Error loading all appointments:', allConsultationError);
+        return;
+      }
+
+      // Format patient's own appointments
       const formattedAppointments: PatientAppointment[] = consultations?.map((consultation: any) => {
         const consultationDate = new Date(consultation.consultation_date);
         const [hours, minutes] = consultation.consultation_time.split(':').map(Number);
@@ -104,8 +209,41 @@ const PatientDashboard = () => {
         };
       }) || [];
 
+      // Format ALL appointments for blocking (including other patients' appointments)
+      const allFormattedAppointments: PatientAppointment[] = allConsultations?.map((consultation: any) => {
+        const consultationDate = new Date(consultation.consultation_date);
+        const [hours, minutes] = consultation.consultation_time.split(':').map(Number);
+        const startTime = new Date(consultationDate);
+        startTime.setHours(hours, minutes, 0, 0);
+        
+        let endTime: Date;
+        if (consultation.end_time) {
+          const [endHours, endMinutes] = consultation.end_time.split(':').map(Number);
+          endTime = new Date(consultationDate);
+          endTime.setHours(endHours, endMinutes, 0, 0);
+        } else {
+          const duration = consultation.duration_minutes || 30;
+          endTime = new Date(startTime.getTime() + duration * 60000);
+        }
+        
+        return {
+          id: consultation.id,
+          title: consultation.reason || 'Consultation',
+          start: startTime,
+          end: endTime,
+          appointment_type: 'consultation' as const,
+          status: consultation.status as 'pending' | 'confirmed' | 'cancelled' | 'scheduled',
+          doctor_name: consultation.profiles?.full_name || 'Dr. Unknown',
+          notes: consultation.notes || '',
+          patient_id: consultation.patient_id,
+          doctor_id: consultation.doctor_id
+        };
+      }) || [];
+
       setAppointments(formattedAppointments);
+      setAllAppointments(allFormattedAppointments);
       console.log('✅ Appointments reloaded:', formattedAppointments.length);
+      console.log('✅ All appointments for blocking:', allFormattedAppointments.length);
     } catch (error) {
       console.error('❌ Error reloading appointments:', error);
     }
@@ -157,6 +295,24 @@ const PatientDashboard = () => {
               profiles!consultations_doctor_id_fkey(full_name)
             `)
           .eq('patient_id', profileData!.id)
+          .order('consultation_date', { ascending: true });
+
+        // Load ALL appointments for blocking (not just patient's own)
+        const { data: allConsultations, error: allConsultationError } = await supabase
+          .from('consultations')
+          .select(`
+            id,
+            consultation_date,
+            consultation_time,
+            end_time,
+            duration_minutes,
+            reason,
+            notes,
+            status,
+            doctor_id,
+            patient_id,
+            profiles!consultations_doctor_id_fkey(full_name)
+          `)
           .order('consultation_date', { ascending: true });
 
         // Load consent requests
@@ -213,12 +369,44 @@ const PatientDashboard = () => {
         };
       }) || [];
       
+      // Format ALL appointments for blocking (including other patients' appointments)
+      const allFormattedAppointments: PatientAppointment[] = allConsultations?.map((consultation: any) => {
+        const consultationDate = new Date(consultation.consultation_date);
+        const [hours, minutes] = consultation.consultation_time.split(':').map(Number);
+        const startTime = new Date(consultationDate);
+        startTime.setHours(hours, minutes, 0, 0);
+        
+        let endTime: Date;
+        if (consultation.end_time) {
+          const [endHours, endMinutes] = consultation.end_time.split(':').map(Number);
+          endTime = new Date(consultationDate);
+          endTime.setHours(endHours, endMinutes, 0, 0);
+        } else {
+          const duration = consultation.duration_minutes || 30;
+          endTime = new Date(startTime.getTime() + duration * 60000);
+        }
+        
+        return {
+          id: consultation.id,
+          title: consultation.reason || 'Consultation',
+          start: startTime,
+          end: endTime,
+          appointment_type: 'consultation' as const,
+          status: consultation.status as 'pending' | 'confirmed' | 'cancelled' | 'scheduled',
+          doctor_name: consultation.profiles?.full_name || 'Dr. Unknown',
+          notes: consultation.notes || '',
+          patient_id: consultation.patient_id,
+          doctor_id: consultation.doctor_id
+        };
+      }) || [];
+      
         // Set all data
         setHealthRecords({
           totalRecords: healthRecords?.length || 0,
           recentRecords: healthRecords?.slice(0, 5) || []
         });
         setAppointments(formattedAppointments);
+        setAllAppointments(allFormattedAppointments);
         setActiveConsents((consentRequests || []).filter((consent: any) => consent.status === 'approved').length);
         setRecentActivity(recentActivityData);
         setDoctors((doctorsData || []).map((doctor: any) => ({
@@ -248,6 +436,173 @@ const PatientDashboard = () => {
 
     loadData();
   }, [user?.id]);
+
+  // Real-time subscription for appointments
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('🔄 Setting up real-time subscription for appointments');
+
+    const subscription = supabase
+      .channel('patient-appointments')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'consultations',
+          filter: `patient_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('📡 Real-time appointment update received:', payload);
+          console.log('📡 Event type:', payload.eventType);
+          console.log('📡 Table:', payload.table);
+          console.log('📡 New record:', payload.new);
+          console.log('📡 Old record:', payload.old);
+          // Reload ALL appointments when any change occurs
+          reloadAllAppointments();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+          filter: `patient_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('📡 Real-time appointment update received (appointments table):', payload);
+          console.log('📡 Event type:', payload.eventType);
+          console.log('📡 Table:', payload.table);
+          console.log('📡 New record:', payload.new);
+          console.log('📡 Old record:', payload.old);
+          // Reload ALL appointments when any change occurs
+          reloadAllAppointments();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Successfully subscribed to patient appointments');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Error subscribing to patient appointments');
+        }
+      });
+
+    return () => {
+      console.log('🔄 Cleaning up real-time subscription');
+      subscription.unsubscribe();
+    };
+  }, [user?.id]);
+
+  // Real-time subscription for ALL appointments (to show blocked slots)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('🔄 Setting up real-time subscription for all appointments');
+
+    const subscription = supabase
+      .channel('all-appointments')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'consultations'
+        },
+        (payload) => {
+          console.log('📡 Real-time ALL appointments update received:', payload);
+          console.log('📡 Event type:', payload.eventType);
+          console.log('📡 Table:', payload.table);
+          console.log('📡 New record:', payload.new);
+          console.log('📡 Old record:', payload.old);
+          console.log('📡 Patient ID in new record:', payload.new?.patient_id);
+          console.log('📡 Doctor ID in new record:', payload.new?.doctor_id);
+          // Reload ALL appointments when any change occurs to any appointment
+          reloadAllAppointments();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments'
+        },
+        (payload) => {
+          console.log('📡 Real-time ALL appointments update received:', payload);
+          // Reload ALL appointments when any change occurs to any appointment
+          reloadAllAppointments();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Successfully subscribed to all appointments');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Error subscribing to all appointments');
+        }
+      });
+
+    return () => {
+      console.log('🔄 Cleaning up all appointments subscription');
+      subscription.unsubscribe();
+    };
+  }, [user?.id]);
+
+  // Debug: Add test functions to window for manual testing
+  React.useEffect(() => {
+    (window as any).testAppointments = () => {
+      console.log('🧪 Testing appointments data...');
+      console.log('Patient appointments:', appointments.length);
+      console.log('All appointments:', allAppointments.length);
+      console.log('Appointments by doctor:', allAppointments.reduce((acc, apt) => {
+        acc[apt.doctor_id] = (acc[apt.doctor_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>));
+      
+      // Show first few appointments
+      console.log('First 3 appointments:', allAppointments.slice(0, 3).map(apt => ({
+        id: apt.id,
+        title: apt.title,
+        doctor_id: apt.doctor_id,
+        patient_id: apt.patient_id,
+        start: apt.start,
+        end: apt.end
+      })));
+    };
+    
+    // Debug: Add function to manually reload all appointments
+    (window as any).reloadAllAppointments = () => {
+      console.log('🔄 Manually reloading all appointments...');
+      reloadAllAppointments();
+    };
+    
+    // Debug: Add function to test real-time subscription
+    (window as any).testRealtimeSubscription = () => {
+      console.log('🧪 Testing real-time subscription...');
+      console.log('Current user ID:', user?.id);
+      console.log('All appointments count:', allAppointments.length);
+      console.log('Patient appointments count:', appointments.length);
+      
+      // Show subscription status
+      console.log('🔄 Real-time subscriptions should be active for:');
+      console.log('- Patient appointments (patient_id filter)');
+      console.log('- All appointments (no filter)');
+      
+      // Show all appointments with details
+      console.log('📋 All appointments details:');
+      allAppointments.forEach((apt, index) => {
+        console.log(`Appointment ${index + 1}:`, {
+          id: apt.id,
+          title: apt.title,
+          doctor_id: apt.doctor_id,
+          patient_id: apt.patient_id,
+          start: apt.start.toLocaleString(),
+          end: apt.end.toLocaleString()
+        });
+      });
+    };
+  }, [appointments, allAppointments, reloadAllAppointments]);
 
   // Calendar event handlers
   const handleDateClick = (date: Date) => {
@@ -493,7 +848,7 @@ const PatientDashboard = () => {
         }}
         doctors={doctors}
         testCenters={testCenters}
-        existingAppointments={appointments}
+        existingAppointments={allAppointments}
       />
 
       {/* Day View Modal */}

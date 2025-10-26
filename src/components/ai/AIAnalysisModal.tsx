@@ -105,6 +105,7 @@ export const AIAnalysisModal: React.FC<AIAnalysisModalProps> = ({
           id: recordInsight.id,
           recordId: recordId,
           summary: analysisData.summary || 'AI Analysis Summary',
+          simplifiedSummary: analysisData.simplifiedSummary || analysisData.simplified_summary,
           keyFindings: analysisData.keyFindings || [],
           riskWarnings: analysisData.riskWarnings || [],
           recommendations: analysisData.recommendations || [],
@@ -221,6 +222,19 @@ export const AIAnalysisModal: React.FC<AIAnalysisModalProps> = ({
                         {analysis.summary}
                       </p>
                     </div>
+
+                    {/* Simplified Summary */}
+                    {analysis.simplifiedSummary && (
+                      <div>
+                        <h4 className="font-medium mb-2 flex items-center gap-2">
+                          <Heart className="h-4 w-4" />
+                          Simplified Summary
+                        </h4>
+                        <p className="text-sm text-gray-700 bg-blue-50 p-3 rounded-md border-l-4 border-blue-200">
+                          {analysis.simplifiedSummary}
+                        </p>
+                      </div>
+                    )}
 
                     {/* Key Findings */}
                     {analysis.keyFindings && analysis.keyFindings.length > 0 && (

@@ -55,6 +55,7 @@ export interface AIAnalysis {
   id: string;
   recordId: string;
   summary: string;
+  simplifiedSummary?: string;
   keyFindings: string[];
   riskWarnings: string[];
   recommendations: string[];

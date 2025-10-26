@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Brain, AlertTriangle, CheckCircle, Clock, User, Shield } from 'lucide-react';
+import { X, Brain, AlertTriangle, CheckCircle, Clock, User, Shield, Heart } from 'lucide-react';
 import { 
   getMRICTAnalysis, 
   updateDoctorAccess, 
@@ -78,7 +78,7 @@ export const MRIAnalysisModal: React.FC<MRIAnalysisModalProps> = ({
                 {analysis ? `${analysis.scan_type_display} Analysis` : 'MRI/CT Analysis'}
               </h2>
               <p className="text-sm text-gray-500">
-                AI-powered radiology analysis by Dr7.ai
+                AI-powered radiology analysis
               </p>
             </div>
           </div>
@@ -153,6 +153,17 @@ export const MRIAnalysisModal: React.FC<MRIAnalysisModalProps> = ({
                 </h4>
                 <p className="text-blue-800 leading-relaxed">{analysis.summary}</p>
               </div>
+
+              {/* Simplified Summary */}
+              {analysis.simplifiedSummary && (
+                <div className="bg-green-50 rounded-lg p-4 border-l-4 border-green-200">
+                  <h4 className="font-semibold text-green-900 mb-2 flex items-center space-x-2">
+                    <Heart className="h-5 w-5" />
+                    <span>Simplified Summary</span>
+                  </h4>
+                  <p className="text-green-800 leading-relaxed">{analysis.simplifiedSummary}</p>
+                </div>
+              )}
 
               {/* Findings */}
               {analysis.findings && analysis.findings.length > 0 && (
