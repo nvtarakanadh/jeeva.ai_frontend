@@ -11,17 +11,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pill, Plus, Calendar, User, FileText, Download, Edit, Trash2, Eye, Stethoscope, X, Upload } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createPrescription, Prescription } from '@/services/prescriptionService';
-import { getOptimizedPrescriptionsForDoctor, getOptimizedPatientsForDoctor, clearPrescriptionCache } from '@/services/optimizedPrescriptionService';
+import { getOptimizedPrescriptionsForDoctor, getOptimizedPatientsForDoctor, clearPrescriptionCache, PatientForPrescription } from '@/services/optimizedPrescriptionService';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { PageSkeleton } from '@/components/ui/skeleton-loading';
 import { useDropzone } from 'react-dropzone';
+import { PrescriptionAnalysisModal } from '@/components/ai/PrescriptionAnalysisModal';
+import { analyzeHealthRecord } from '@/services/aiAnalysisService';
+import { getAIAnalysisForRecord } from '@/services/aiAnalysisService';
+import { InlineLoadingSpinner } from '@/components/ui/loading-spinner';
 
 const Prescriptions = () => {
   const { user } = useAuth();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
-  const [patients, setPatients] = useState<any[]>([]);
+  const [patients, setPatients] = useState<PatientForPrescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<string>('all');
@@ -30,6 +34,11 @@ const Prescriptions = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPrescription, setEditingPrescription] = useState<Prescription | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [viewingFile, setViewingFile] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
+  const [analysisPrescription, setAnalysisPrescription] = useState<Prescription | null>(null);
+  const [isCreatingPrescription, setIsCreatingPrescription] = useState(false);
+  const [analyzingPrescriptions, setAnalyzingPrescriptions] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState({
     patient_id: '',
@@ -81,14 +90,16 @@ const Prescriptions = () => {
           throw new Error('Doctor profile not found');
         }
 
+        const doctorId = (doctorProfile as { id: string }).id;
+
         // Load both prescriptions and patients in parallel
         const [prescriptionsData, patientsData] = await Promise.all([
-          getOptimizedPrescriptionsForDoctor(doctorProfile.id),
-          getOptimizedPatientsForDoctor(doctorProfile.id)
+          getOptimizedPrescriptionsForDoctor(doctorId),
+          getOptimizedPatientsForDoctor(doctorId)
         ]);
 
-        setPrescriptions(prescriptionsData as Prescription[]);
-        setPatients(patientsData as any[]);
+        setPrescriptions(prescriptionsData);
+        setPatients(patientsData);
       } catch (error) {
         console.error('Error loading data:', error);
         toast({
@@ -103,6 +114,38 @@ const Prescriptions = () => {
 
     loadAllData();
   }, [user]);
+
+  // Polling for AI Analysis results for prescriptions waiting for analysis
+  useEffect(() => {
+    if (analyzingPrescriptions.size === 0) return;
+    const interval = setInterval(async () => {
+      const toRemove: string[] = [];
+      for (const id of analyzingPrescriptions) {
+        const result = await getAIAnalysisForRecord(id);
+        if (result) {
+          toRemove.push(id);
+          toast({
+            title: 'AI Analysis Complete',
+            description: 'AI Analytics is now available for a prescription.',
+          });
+        }
+      }
+      if (toRemove.length > 0) {
+        setAnalyzingPrescriptions(prev => {
+          const next = new Set(prev);
+          toRemove.forEach(id => next.delete(id));
+          return next;
+        });
+        refreshData(); // to immediately show soon-to-be-available analytics
+      }
+    }, 5000); // polling interval
+    return () => clearInterval(interval);
+  }, [analyzingPrescriptions]);
+
+  // Clear on unmount
+  useEffect(() => {
+    return () => setAnalyzingPrescriptions(new Set());
+  }, []);
 
   const refreshData = async () => {
     if (!user) return;
@@ -121,17 +164,19 @@ const Prescriptions = () => {
         throw new Error('Doctor profile not found');
       }
 
+      const doctorId = (doctorProfile as { id: string }).id;
+
       // Clear cache and reload data
-      clearPrescriptionCache(doctorProfile.id);
+      clearPrescriptionCache(doctorId);
       
       // Load both prescriptions and patients in parallel
       const [prescriptionsData, patientsData] = await Promise.all([
-        getOptimizedPrescriptionsForDoctor(doctorProfile.id),
-        getOptimizedPatientsForDoctor(doctorProfile.id)
+        getOptimizedPrescriptionsForDoctor(doctorId),
+        getOptimizedPatientsForDoctor(doctorId)
       ]);
 
-      setPrescriptions(prescriptionsData as Prescription[]);
-      setPatients(patientsData as any[]);
+      setPrescriptions(prescriptionsData);
+      setPatients(patientsData);
     } catch (error) {
       console.error('Error refreshing data:', error);
       toast({
@@ -146,93 +191,89 @@ const Prescriptions = () => {
 
   const handleCreatePrescription = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Validation: require EITHER file or enough text
+    if (!selectedFile && (!formData.title || !formData.medication || !formData.patient_id)) {
+      toast({
+        title: 'Missing data',
+        description: 'Please fill in the core text fields or attach a prescription file.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setIsCreatingPrescription(true);
     try {
-      
-      // First get the doctor's profile ID
+      // Get doctor's profile ID
       const { data: doctorProfile, error: profileError } = await supabase
         .from('profiles')
         .select('id')
         .eq('user_id', user.id)
         .single();
+      if (profileError || !doctorProfile) throw new Error('Doctor profile not found');
+      const doctorId = (doctorProfile as { id: string }).id;
+      const prescriptionData = { ...formData, doctor_id: doctorId };
 
-      if (profileError || !doctorProfile) {
-        throw new Error('Doctor profile not found');
-      }
-
-
-      const prescriptionData = {
-        ...formData,
-        doctor_id: doctorProfile.id,
-      };
-
-
+      // Create prescription in DB
       const prescription = await createPrescription(prescriptionData);
-      
-      // Upload file if selected
+      let publicUrl = undefined;
+      let fileName = undefined;
+
+      // File upload (if any), and update
       if (selectedFile) {
         try {
-          // Upload file to Supabase storage
           const fileExt = selectedFile.name.split('.').pop();
-          const fileName = `${prescription.id}.${fileExt}`;
+          fileName = `${prescription.id}.${fileExt}`;
           const filePath = `prescriptions/${fileName}`;
-          
           const { error: uploadError } = await supabase.storage
             .from('medical-files')
             .upload(filePath, selectedFile);
-          
           if (uploadError) throw uploadError;
-          
-          // Get public URL
-          const { data: { publicUrl } } = supabase.storage
-            .from('medical-files')
-            .getPublicUrl(filePath);
-          
-          // Update prescription with file URL
-          const { error: updateError } = await supabase
-            .from('prescriptions')
-            .update({
-              file_url: publicUrl,
-              file_name: selectedFile.name
-            })
+          const { data: { publicUrl: url } } = supabase.storage
+            .from('medical-files').getPublicUrl(filePath);
+          publicUrl = url;
+          const { error: updateError } = await (supabase
+            .from('prescriptions') as any)
+            .update({ file_url: publicUrl, file_name: selectedFile.name })
             .eq('id', prescription.id);
-          
           if (updateError) throw updateError;
         } catch (fileError) {
           console.error('File upload error:', fileError);
-          toast({
-            title: "Warning",
-            description: "Prescription created but file upload failed",
-            variant: "destructive",
-          });
+          toast({ title: 'Warning', description: 'Prescription created but file upload failed', variant: 'destructive' });
         }
       }
-      
-      toast({
-        title: "Success",
-        description: "Prescription created successfully",
-      });
-      
+
+      // Ready to close dialog/UI and show loader per-prescription AI in background!
       setIsCreateOpen(false);
       setSelectedFile(null);
-      setFormData({
-        patient_id: '',
-        title: '',
-        description: '',
-        medication: '',
-        dosage: '',
-        frequency: '',
-        duration: '',
-        instructions: '',
-        prescription_date: new Date().toISOString().split('T')[0],
-      });
-      
+      setFormData({ patient_id: '', title: '', description: '', medication: '', dosage: '', frequency: '', duration: '', instructions: '', prescription_date: new Date().toISOString().split('T')[0] });
       refreshData();
+      setIsCreatingPrescription(false); // UI enabled, modal closed
+
+      // Fire-and-forget AI analysis in background
+      setAnalyzingPrescriptions(prev => new Set(prev).add(prescription.id));
+      toast({ title: 'AI analysis is running in background.' });
+      analyzeHealthRecord({
+        title: prescription.title,
+        description: prescription.description,
+        record_type: 'prescription',
+        service_date: prescription.prescription_date,
+        file_url: publicUrl,
+        file_name: selectedFile?.name,
+        record_id: prescription.id,
+        patient_id: prescription.patient_id,
+        uploaded_by: prescription.doctor_id,
+      })
+        .then(() => {
+          setAnalyzingPrescriptions(prev => { const next = new Set(prev); next.delete(prescription.id); return next; });
+          toast({ title: 'AI analysis completed and available!' });
+          refreshData();
+        })
+        .catch(() => {
+          setAnalyzingPrescriptions(prev => { const next = new Set(prev); next.delete(prescription.id); return next; });
+          toast({ title: 'AI analysis failed', variant: 'destructive' });
+        });
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create prescription",
-        variant: "destructive",
-      });
+      toast({ title: 'Error', description: 'Failed to create prescription', variant: 'destructive' });
+      setIsCreatingPrescription(false);
     }
   };
 
@@ -242,6 +283,79 @@ const Prescriptions = () => {
       month: 'short',
       day: 'numeric',
     }).format(new Date(dateString));
+  };
+
+  const getFileType = (fileName: string, fileUrl?: string) => {
+    // First try to get extension from file name
+    const extension = fileName?.split('.').pop()?.toLowerCase();
+    
+    // If no extension in name, try to get from URL
+    if (!extension && fileUrl) {
+      const urlExtension = fileUrl.split('.').pop()?.toLowerCase();
+      if (urlExtension && ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(urlExtension)) {
+        if (['pdf'].includes(urlExtension)) return 'pdf';
+        return 'image';
+      }
+    }
+    
+    // Check extension
+    if (['pdf'].includes(extension || '')) return 'pdf';
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension || '')) return 'image';
+    if (['doc', 'docx'].includes(extension || '')) return 'document';
+    
+    // Default to trying to display as image or pdf based on URL
+    if (fileUrl?.includes('.pdf') || fileUrl?.includes('pdf')) return 'pdf';
+    if (fileUrl?.includes('.jpg') || fileUrl?.includes('.jpeg') || fileUrl?.includes('.png') || fileUrl?.includes('.gif')) return 'image';
+    
+    return 'file';
+  };
+
+  const openFileViewer = async (fileUrl: string, fileName: string) => {
+    try {
+      // If it's already a full URL, use it directly
+      let displayUrl = fileUrl;
+      
+      // Check if it's a Supabase storage path and try different bucket names
+      if (fileUrl && !fileUrl.startsWith('http')) {
+        // Try different possible bucket names
+        const possibleBuckets = ['medical-files', 'prescriptions', 'consultation-notes', 'health-records', 'files'];
+        
+        for (const bucket of possibleBuckets) {
+          try {
+            const { data } = supabase.storage
+              .from(bucket)
+              .getPublicUrl(fileUrl);
+            
+            if (data.publicUrl) {
+              displayUrl = data.publicUrl;
+              break;
+            }
+          } catch (bucketError) {
+            // Continue to next bucket
+          }
+        }
+      }
+      
+      // Get file type with both name and URL for better detection
+      const fileType = getFileType(fileName || 'Unknown File', displayUrl);
+      setViewingFile({ url: displayUrl, name: fileName || 'Unknown File', type: fileType });
+    } catch (error) {
+      // Still try to open with the original URL
+      const fileType = getFileType(fileName || 'Unknown File', fileUrl);
+      setViewingFile({ url: fileUrl, name: fileName || 'Unknown File', type: fileType });
+    }
+  };
+
+  const handleDownload = async (prescription: Prescription) => {
+    if (!prescription.file_url) {
+      toast({
+        title: "No File Available",
+        description: "This prescription doesn't have an attached file.",
+        variant: "destructive"
+      });
+      return;
+    }
+    await openFileViewer(prescription.file_url, prescription.file_name || 'Prescription File');
   };
 
   const handleEdit = (prescription: Prescription) => {
@@ -282,15 +396,17 @@ const Prescriptions = () => {
         throw new Error('Doctor profile not found');
       }
 
+      const doctorId = (doctorProfile as { id: string }).id;
 
       const updateData = {
         ...formData,
-        doctor_id: doctorProfile.id,
+        doctor_id: doctorId,
       };
 
 
-      const { error } = await supabase
-        .from('prescriptions')
+      // Cast builder to any to avoid overly strict TS inference from generated types
+      const { error } = await (supabase
+        .from('prescriptions') as any)
         .update(updateData)
         .eq('id', editingPrescription.id);
 
@@ -347,6 +463,11 @@ const Prescriptions = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleAnalysis = (prescription: Prescription) => {
+    setAnalysisPrescription(prescription);
+    setIsAnalysisModalOpen(true);
   };
 
   const filteredPrescriptions = prescriptions.filter(prescription => 
@@ -411,17 +532,21 @@ const Prescriptions = () => {
                   <Select
                     value={formData.patient_id}
                     onValueChange={(value) => setFormData({ ...formData, patient_id: value })}
-                    required
+                    required={!selectedFile} // Only required if no file is selected
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select patient" />
                     </SelectTrigger>
                     <SelectContent>
-                      {patients.map((patient) => (
-                        <SelectItem key={patient.id} value={patient.id}>
-                          {patient.full_name} ({patient.email})
-                        </SelectItem>
-                      ))}
+                      {patients
+                        .filter((patient, index, self) => 
+                          patient.id && index === self.findIndex(p => p.id === patient.id)
+                        )
+                        .map((patient) => (
+                          <SelectItem key={patient.id} value={patient.id}>
+                            {patient.full_name} ({patient.email})
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -432,7 +557,7 @@ const Prescriptions = () => {
                     type="date"
                     value={formData.prescription_date}
                     onChange={(e) => setFormData({ ...formData, prescription_date: e.target.value })}
-                    required
+                    required={!selectedFile} // Only required if no file is selected
                   />
                 </div>
               </div>
@@ -444,7 +569,7 @@ const Prescriptions = () => {
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="e.g., Blood Pressure Medication"
-                  required
+                  required={!selectedFile} // Only required if no file is selected
                 />
               </div>
 
@@ -467,7 +592,7 @@ const Prescriptions = () => {
                     value={formData.medication}
                     onChange={(e) => setFormData({ ...formData, medication: e.target.value })}
                     placeholder="e.g., Lisinopril"
-                    required
+                    required={!selectedFile} // Only required if no file is selected
                   />
                 </div>
                 <div className="space-y-2">
@@ -477,7 +602,7 @@ const Prescriptions = () => {
                     value={formData.dosage}
                     onChange={(e) => setFormData({ ...formData, dosage: e.target.value })}
                     placeholder="e.g., 10mg"
-                    required
+                    required={!selectedFile} // Only required if no file is selected
                   />
                 </div>
               </div>
@@ -488,7 +613,7 @@ const Prescriptions = () => {
                   <Select
                     value={formData.frequency}
                     onValueChange={(value) => setFormData({ ...formData, frequency: value })}
-                    required
+                    required={!selectedFile} // Only required if no file is selected
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select frequency" />
@@ -510,7 +635,7 @@ const Prescriptions = () => {
                     value={formData.duration}
                     onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
                     placeholder="e.g., 30 days"
-                    required
+                    required={!selectedFile} // Only required if no file is selected
                   />
                 </div>
               </div>
@@ -575,7 +700,16 @@ const Prescriptions = () => {
                 <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">Create Prescription</Button>
+                <Button type="submit" disabled={isCreatingPrescription}>
+                  {isCreatingPrescription ? (
+                    <>
+                      <InlineLoadingSpinner />
+                      <span className="ml-2">Creating...</span>
+                    </>
+                  ) : (
+                    "Create Prescription"
+                  )}
+                </Button>
               </div>
             </form>
           </DialogContent>
@@ -676,9 +810,23 @@ const Prescriptions = () => {
                       View
                     </Button>
                     {prescription.file_url && (
-                      <Button variant="outline" size="sm">
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAnalysis(prescription)}
+                        disabled={analyzingPrescriptions.has(prescription.id)}
+                      >
+                        {analyzingPrescriptions.has(prescription.id) ? (
+                          <>
+                            <InlineLoadingSpinner />
+                            <span className="ml-2">AI Analytics</span>
+                          </>
+                        ) : (
+                          <>
+                            <Stethoscope className="h-4 w-4 mr-2" />
+                            AI Analytics
+                          </>
+                        )}
                       </Button>
                     )}
                     <Button variant="outline" size="sm" className="text-red-600" onClick={() => handleDelete(prescription)}>
@@ -839,10 +987,11 @@ const Prescriptions = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => handleDownload(selectedPrescription)}
                       className="ml-auto"
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
+                      <Eye className="h-4 w-4 mr-2" />
+                      View file
                     </Button>
                   </div>
                 </div>
@@ -878,11 +1027,15 @@ const Prescriptions = () => {
                     <SelectValue placeholder="Select patient" />
                   </SelectTrigger>
                   <SelectContent>
-                    {patients.map((patient) => (
-                      <SelectItem key={patient.id} value={patient.id}>
-                        {patient.name} ({patient.email})
-                      </SelectItem>
-                    ))}
+                    {patients
+                      .filter((patient, index, self) => 
+                        patient.id && index === self.findIndex(p => p.id === patient.id)
+                      )
+                      .map((patient) => (
+                        <SelectItem key={patient.id} value={patient.id}>
+                          {patient.full_name} ({patient.email})
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -988,6 +1141,128 @@ const Prescriptions = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* File Viewer Modal */}
+      {viewingFile && (
+        <Dialog open={!!viewingFile} onOpenChange={() => setViewingFile(null)}>
+          <DialogContent className="w-[95vw] max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-2 sm:p-4 mx-auto">
+            <DialogHeader className="pb-2 sm:pb-4 pr-8">
+              <DialogTitle className="flex items-center gap-2 text-sm sm:text-base min-w-0">
+                <FileText className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate pr-2">{viewingFile.name}</span>
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-auto w-full">
+              {viewingFile.type === 'pdf' && (
+                <div className="flex items-center justify-center h-[50vh] sm:h-[60vh]">
+                  <div className="w-full h-full border rounded-lg">
+                    <iframe
+                      src={viewingFile.url}
+                      className="w-full h-full border-0 rounded-lg"
+                      title={viewingFile.name}
+                      onError={(e) => {
+                        console.error('Error loading PDF:', e);
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {viewingFile.type === 'image' && (
+                <div className="h-[50vh] sm:h-[60vh] bg-gray-50 rounded-lg p-4 flex items-center justify-center w-full text-center">
+                  <div className="flex items-center justify-center w-full h-full text-center">
+                    <img
+                      src={viewingFile.url}
+                      alt={viewingFile.name}
+                      className="max-w-full max-h-full object-contain rounded shadow-sm"
+                      style={{ 
+                        display: 'block', 
+                        margin: '0 auto',
+                        textAlign: 'center'
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {viewingFile.type === 'document' && (
+                <div className="flex items-center justify-center h-[50vh] sm:h-[60vh] bg-gray-100 rounded-lg p-4">
+                  <div className="text-center">
+                    <FileText className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-base sm:text-lg font-medium">Document Preview</p>
+                    <p className="text-sm text-gray-500 mb-4 break-all">{viewingFile.name}</p>
+                    <p className="text-xs sm:text-sm text-gray-400 mb-4">
+                      Document preview not available in browser.
+                    </p>
+                    <Button 
+                      onClick={() => window.open(viewingFile.url, '_blank')}
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                    >
+                      Open in New Tab
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {viewingFile.type === 'file' && (
+                <div className="flex items-center justify-center h-[60vh] sm:h-[70vh] bg-gray-100 rounded-lg p-4">
+                  <div className="text-center">
+                    <FileText className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-base sm:text-lg font-medium">File Preview</p>
+                    <p className="text-sm text-gray-500 mb-4 break-all">{viewingFile.name}</p>
+                    <p className="text-xs sm:text-sm text-gray-400 mb-4">
+                      File preview not available in browser.
+                    </p>
+                    <Button 
+                      onClick={() => window.open(viewingFile.url, '_blank')}
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                    >
+                      Open in New Tab
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-3 pt-3 sm:pt-4 border-t mt-4">
+              <div className="flex flex-col sm:flex-row gap-2 w-full">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.open(viewingFile.url, '_blank')}
+                  className="flex-1 sm:flex-none"
+                >
+                  Open in New Tab
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = viewingFile.url;
+                    link.download = viewingFile.name;
+                    link.click();
+                  }}
+                  className="flex-1 sm:flex-none"
+                >
+                  Download
+                </Button>
+              </div>
+              <p className="text-xs sm:text-sm text-gray-500 break-all">
+                URL: {viewingFile.url}
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Prescription Analysis Modal */}
+      <PrescriptionAnalysisModal
+        isOpen={isAnalysisModalOpen}
+        onClose={() => setIsAnalysisModalOpen(false)}
+        prescription={analysisPrescription}
+      />
     </div>
   );
 };

@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { NavigationProvider } from "@/contexts/NavigationContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { PageSkeleton } from "@/components/ui/skeleton-loading";
@@ -59,14 +60,15 @@ window.addEventListener('error', (event) => {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <NavigationProvider>
-            <AuthProvider>
-              <SidebarProvider>
-                <NotificationProvider>
+      <ThemeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <NavigationProvider>
+              <AuthProvider>
+                <SidebarProvider>
+                  <NotificationProvider>
                   <ErrorBoundary>
                 <Suspense fallback={<PageSkeleton />}>
                 <Routes>
@@ -263,12 +265,13 @@ const App = () => {
                 </Routes>
               </Suspense>
                   </ErrorBoundary>
-                </NotificationProvider>
-              </SidebarProvider>
-            </AuthProvider>
-          </NavigationProvider>
-        </BrowserRouter>
-    </TooltipProvider>
+                  </NotificationProvider>
+                </SidebarProvider>
+              </AuthProvider>
+            </NavigationProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
   </QueryClientProvider>
   );
 };

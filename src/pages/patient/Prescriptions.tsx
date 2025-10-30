@@ -6,13 +6,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Pill, Download, Eye, Calendar, User, Stethoscope, Search, Filter, X, FileText } from 'lucide-react';
+import { Pill, Eye, Calendar, User, Stethoscope, Search, Filter, X, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageLoadingSpinner } from '@/components/ui/loading-spinner';
 import { useAuth } from '@/contexts/AuthContext';
 import { getPrescriptionsForPatient, Prescription } from '@/services/prescriptionService';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { PrescriptionAnalysisModal } from '@/components/ai/PrescriptionAnalysisModal';
 
 const PatientPrescriptions = () => {
   const { user } = useAuth();
@@ -23,6 +24,9 @@ const PatientPrescriptions = () => {
   const [filterYear, setFilterYear] = useState<string>('all');
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewingFile, setViewingFile] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
+  const [analysisPrescription, setAnalysisPrescription] = useState<Prescription | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -47,7 +51,8 @@ const PatientPrescriptions = () => {
       }
 
 
-      const data = await getPrescriptionsForPatient(patientProfile.id);
+      const patientId = (patientProfile as { id: string }).id;
+      const data = await getPrescriptionsForPatient(patientId);
       setPrescriptions(data);
     } catch (error) {
       toast({
@@ -86,36 +91,75 @@ const PatientPrescriptions = () => {
     new Date(p.prescription_date).getFullYear() < new Date().getFullYear()
   );
 
-  const handleDownload = async (prescription: Prescription) => {
-    if (!prescription.file_url) {
-      toast({
-        title: "No File Available",
-        description: "This prescription doesn't have an attached file.",
-        variant: "destructive"
-      });
-      return;
+  const getFileType = (fileName: string, fileUrl?: string) => {
+    // First try to get extension from file name
+    const extension = fileName?.split('.').pop()?.toLowerCase();
+    
+    // If no extension in name, try to get from URL
+    if (!extension && fileUrl) {
+      const urlExtension = fileUrl.split('.').pop()?.toLowerCase();
+      if (urlExtension && ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(urlExtension)) {
+        if (['pdf'].includes(urlExtension)) return 'pdf';
+        return 'image';
+      }
     }
+    
+    // Check extension
+    if (['pdf'].includes(extension || '')) return 'pdf';
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension || '')) return 'image';
+    if (['doc', 'docx'].includes(extension || '')) return 'document';
+    
+    // Default to trying to display as image or pdf based on URL
+    if (fileUrl?.includes('.pdf') || fileUrl?.includes('pdf')) return 'pdf';
+    if (fileUrl?.includes('.jpg') || fileUrl?.includes('.jpeg') || fileUrl?.includes('.png') || fileUrl?.includes('.gif')) return 'image';
+    
+    return 'file';
+  };
 
+  const openFileViewer = async (fileUrl: string, fileName: string) => {
     try {
-      // Create a temporary link to download the file
-      const link = document.createElement('a');
-      link.href = prescription.file_url;
-      link.download = prescription.file_name || `prescription-${prescription.id}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // If it's already a full URL, use it directly
+      let displayUrl = fileUrl;
+      
+      // Check if it's a Supabase storage path and try different bucket names
+      if (fileUrl && !fileUrl.startsWith('http')) {
+        // Try different possible bucket names
+        const possibleBuckets = ['medical-files', 'prescriptions', 'consultation-notes', 'health-records', 'files'];
+        
+        for (const bucket of possibleBuckets) {
+          try {
+            const { data } = supabase.storage
+              .from(bucket)
+              .getPublicUrl(fileUrl);
+            
+            if (data.publicUrl) {
+              displayUrl = data.publicUrl;
+              break;
+            }
+          } catch (bucketError) {
+            // Continue to next bucket
+          }
+        }
+      }
+      
+      // Get file type with both name and URL for better detection
+      const fileType = getFileType(fileName || 'Unknown File', displayUrl);
+      setViewingFile({ url: displayUrl, name: fileName || 'Unknown File', type: fileType });
     } catch (error) {
-      toast({
-        title: "Download Error",
-        description: "Failed to download the prescription file.",
-        variant: "destructive"
-      });
+      // Still try to open with the original URL
+      const fileType = getFileType(fileName || 'Unknown File', fileUrl);
+      setViewingFile({ url: fileUrl, name: fileName || 'Unknown File', type: fileType });
     }
   };
 
   const handleView = (prescription: Prescription) => {
     setSelectedPrescription(prescription);
     setIsViewModalOpen(true);
+  };
+
+  const handleAnalysis = (prescription: Prescription) => {
+    setAnalysisPrescription(prescription);
+    setIsAnalysisModalOpen(true);
   };
 
   if (loading) {
@@ -178,7 +222,6 @@ const PatientPrescriptions = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">With Files</CardTitle>
-            <Download className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -288,12 +331,20 @@ const PatientPrescriptions = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDownload(prescription)}
+                            onClick={() => openFileViewer(prescription.file_url, prescription.file_name || 'Prescription File')}
                           >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
+                            <Eye className="h-4 w-4 mr-2" />
+                            View file
                           </Button>
                         )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAnalysis(prescription)}
+                        >
+                          <Stethoscope className="h-4 w-4 mr-2" />
+                          AI Analytics
+                        </Button>
                       </div>
                     </div>
                     <CardDescription>
@@ -386,12 +437,20 @@ const PatientPrescriptions = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDownload(prescription)}
+                            onClick={() => openFileViewer(prescription.file_url, prescription.file_name || 'Prescription File')}
                           >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
+                            <Eye className="h-4 w-4 mr-2" />
+                            View file
                           </Button>
                         )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAnalysis(prescription)}
+                        >
+                          <Stethoscope className="h-4 w-4 mr-2" />
+                          AI Analytics
+                        </Button>
                       </div>
                     </div>
                     <CardDescription>
@@ -484,12 +543,20 @@ const PatientPrescriptions = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDownload(prescription)}
+                            onClick={() => openFileViewer(prescription.file_url, prescription.file_name || 'Prescription File')}
                           >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
+                            <Eye className="h-4 w-4 mr-2" />
+                            View file
                           </Button>
                         )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAnalysis(prescription)}
+                        >
+                          <Stethoscope className="h-4 w-4 mr-2" />
+                          AI Analytics
+                        </Button>
                       </div>
                     </div>
                     <CardDescription>
@@ -648,11 +715,11 @@ const PatientPrescriptions = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDownload(selectedPrescription)}
+                      onClick={() => openFileViewer(selectedPrescription.file_url, selectedPrescription.file_name || 'Prescription File')}
                       className="ml-auto"
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
+                      <Eye className="h-4 w-4 mr-2" />
+                      View file
                     </Button>
                   </div>
                 </div>
@@ -661,6 +728,128 @@ const PatientPrescriptions = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* File Viewer Modal */}
+      {viewingFile && (
+        <Dialog open={!!viewingFile} onOpenChange={() => setViewingFile(null)}>
+          <DialogContent className="w-[95vw] max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-2 sm:p-4 mx-auto">
+            <DialogHeader className="pb-2 sm:pb-4 pr-8">
+              <DialogTitle className="flex items-center gap-2 text-sm sm:text-base min-w-0">
+                <FileText className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate pr-2">{viewingFile.name}</span>
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-auto w-full">
+              {viewingFile.type === 'pdf' && (
+                <div className="flex items-center justify-center h-[50vh] sm:h-[60vh]">
+                  <div className="w-full h-full border rounded-lg">
+                    <iframe
+                      src={viewingFile.url}
+                      className="w-full h-full border-0 rounded-lg"
+                      title={viewingFile.name}
+                      onError={(e) => {
+                        console.error('Error loading PDF:', e);
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {viewingFile.type === 'image' && (
+                <div className="h-[50vh] sm:h-[60vh] bg-gray-50 rounded-lg p-4 flex items-center justify-center w-full text-center">
+                  <div className="flex items-center justify-center w-full h-full text-center">
+                    <img
+                      src={viewingFile.url}
+                      alt={viewingFile.name}
+                      className="max-w-full max-h-full object-contain rounded shadow-sm"
+                      style={{ 
+                        display: 'block', 
+                        margin: '0 auto',
+                        textAlign: 'center'
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {viewingFile.type === 'document' && (
+                <div className="flex items-center justify-center h-[50vh] sm:h-[60vh] bg-gray-100 rounded-lg p-4">
+                  <div className="text-center">
+                    <FileText className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-base sm:text-lg font-medium">Document Preview</p>
+                    <p className="text-sm text-gray-500 mb-4 break-all">{viewingFile.name}</p>
+                    <p className="text-xs sm:text-sm text-gray-400 mb-4">
+                      Document preview not available in browser.
+                    </p>
+                    <Button 
+                      onClick={() => window.open(viewingFile.url, '_blank')}
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                    >
+                      Open in New Tab
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {viewingFile.type === 'file' && (
+                <div className="flex items-center justify-center h-[60vh] sm:h-[70vh] bg-gray-100 rounded-lg p-4">
+                  <div className="text-center">
+                    <FileText className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-gray-400 mb-4" />
+                    <p className="text-base sm:text-lg font-medium">File Preview</p>
+                    <p className="text-sm text-gray-500 mb-4 break-all">{viewingFile.name}</p>
+                    <p className="text-xs sm:text-sm text-gray-400 mb-4">
+                      File preview not available in browser.
+                    </p>
+                    <Button 
+                      onClick={() => window.open(viewingFile.url, '_blank')}
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                    >
+                      Open in New Tab
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-3 pt-3 sm:pt-4 border-t mt-4">
+              <div className="flex flex-col sm:flex-row gap-2 w-full">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.open(viewingFile.url, '_blank')}
+                  className="flex-1 sm:flex-none"
+                >
+                  Open in New Tab
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = viewingFile.url;
+                    link.download = viewingFile.name;
+                    link.click();
+                  }}
+                  className="flex-1 sm:flex-none"
+                >
+                  Download
+                </Button>
+              </div>
+              <p className="text-xs sm:text-sm text-gray-500 break-all">
+                URL: {viewingFile.url}
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Prescription Analysis Modal */}
+      <PrescriptionAnalysisModal
+        isOpen={isAnalysisModalOpen}
+        onClose={() => setIsAnalysisModalOpen(false)}
+        prescription={analysisPrescription}
+      />
     </div>
   );
 };

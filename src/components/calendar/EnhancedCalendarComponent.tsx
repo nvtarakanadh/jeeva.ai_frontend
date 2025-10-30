@@ -90,23 +90,23 @@ const EnhancedCalendarComponent: React.FC<EnhancedCalendarComponentProps> = memo
 
   const getEventColor = useCallback((eventType: string, status: string) => {
     if (eventType === 'consultation') {
-      if (status === 'pending') return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      if (status === 'confirmed') return 'bg-green-100 text-green-800 border-green-200';
-      if (status === 'rejected') return 'bg-red-100 text-red-800 border-red-200';
-      return 'bg-green-100 text-green-800 border-green-200'; // Default to green for confirmed consultations
+      if (status === 'pending') return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-800';
+      if (status === 'confirmed') return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-800';
+      if (status === 'rejected') return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800';
+      return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-200 dark:border-green-800'; // Default to green for confirmed consultations
     }
     
     switch (eventType) {
       case 'blocked':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800';
       case 'followup':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-800';
       case 'meeting':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
+        return 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-800';
       case 'reminder':
-        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+        return 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 border-indigo-200 dark:border-indigo-800';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700';
     }
   }, []);
 
@@ -165,14 +165,14 @@ const EnhancedCalendarComponent: React.FC<EnhancedCalendarComponentProps> = memo
           <div
             key={cellDate.toString()}
             className={`
-              calendar-day min-h-[90px] md:min-h-[120px] p-2 md:p-3 border border-gray-200 cursor-pointer hover:bg-gray-50
-              ${isCurrentMonth ? 'bg-white' : 'bg-gray-50 text-gray-400'}
-              ${isToday ? 'ring-2 ring-blue-500' : ''}
+              calendar-day min-h-[90px] md:min-h-[120px] p-2 md:p-3 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800
+              ${isCurrentMonth ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-950 text-gray-400 dark:text-gray-500'}
+              ${isToday ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''}
             `}
             onClick={() => onDateClick(cellDate)}
           >
             <div className="flex items-center justify-between mb-1">
-              <span className={`text-xs md:text-sm font-medium ${isToday ? 'text-blue-600' : ''}`}>
+              <span className={`text-xs md:text-sm font-medium ${isToday ? 'text-blue-600 dark:text-blue-400' : 'dark:text-gray-200'}`}>
                 {format(cellDate, dateFormat)}
               </span>
               <div className="flex gap-1">
@@ -180,7 +180,7 @@ const EnhancedCalendarComponent: React.FC<EnhancedCalendarComponentProps> = memo
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 w-6 p-0 opacity-100 hover:bg-blue-100 transition-colors"
+                    className="h-6 w-6 p-0 opacity-100 hover:bg-blue-100 dark:hover:bg-blue-900 dark:text-gray-200 transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
                           onDayViewClick(cellDate);
@@ -268,14 +268,14 @@ const EnhancedCalendarComponent: React.FC<EnhancedCalendarComponentProps> = memo
         <div
           key={day.toString()}
           className={`
-            min-h-[200px] p-3 border border-gray-200
-            ${isToday ? 'bg-blue-50 ring-2 ring-blue-500' : 'bg-white'}
+            min-h-[200px] p-3 border border-gray-200 dark:border-gray-700
+            ${isToday ? 'bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500 dark:ring-blue-400' : 'bg-white dark:bg-gray-900'}
           `}
         >
           <div className="flex items-center justify-between mb-2">
             <div>
-              <div className="font-medium">{format(day, 'EEEE')}</div>
-              <div className="text-sm text-gray-500">{format(day, 'MMM d')}</div>
+              <div className="font-medium dark:text-gray-200">{format(day, 'EEEE')}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{format(day, 'MMM d')}</div>
             </div>
             {showAddButton && (
               <Button
@@ -415,9 +415,9 @@ const EnhancedCalendarComponent: React.FC<EnhancedCalendarComponentProps> = memo
           {view === 'month' ? (
             <div className="space-y-0 overflow-x-auto">
               {/* Days of week header */}
-              <div className="grid grid-cols-7 bg-gray-50 border-b min-w-[700px] md:min-w-0">
+              <div className="grid grid-cols-7 bg-gray-50 dark:bg-gray-900 border-b dark:border-gray-700 min-w-[700px] md:min-w-0">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="p-2 md:p-3 text-center text-xs md:text-sm font-medium text-gray-700">
+                  <div key={day} className="p-2 md:p-3 text-center text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300">
                     {day}
                   </div>
                 ))}
@@ -435,7 +435,7 @@ const EnhancedCalendarComponent: React.FC<EnhancedCalendarComponentProps> = memo
         </div>
         
         {/* Legend */}
-        <div className="p-4 border-t bg-gray-50">
+        <div className="p-4 border-t bg-gray-50 dark:bg-gray-900 dark:text-gray-200 dark:border-gray-700">
           <div className="flex flex-wrap gap-4 text-sm">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-green-500"></div>

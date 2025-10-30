@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { getStoredTheme, useThemeContext } from '@/contexts/ThemeContext';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { PrivacySettings } from '@/components/settings/PrivacySettings';
 import { PasswordSettings } from '@/components/settings/PasswordSettings';
@@ -22,8 +23,10 @@ const Settings = () => {
     publicProfile: false,
   });
 
+  const { theme, setTheme } = useThemeContext();
+
   const [preferences, setPreferences] = useState({
-    theme: 'system',
+    theme: getStoredTheme(),
     language: 'en',
     timezone: 'Asia/Kolkata',
   });
@@ -38,7 +41,14 @@ const Settings = () => {
 
   const handlePreferenceChange = (key: string, value: string) => {
     setPreferences(prev => ({ ...prev, [key]: value }));
+    if (key === 'theme') setTheme(value as any);
   };
+
+  useEffect(() => {
+    if (preferences.theme !== theme) {
+      setPreferences(prev => ({ ...prev, theme }));
+    }
+  }, [theme]);
 
   return (
     <div className="space-y-6">

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useThemeContext } from '@/contexts/ThemeContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -15,13 +16,25 @@ interface PreferenceSettingsProps {
 }
 
 export const PreferenceSettings = ({ preferences, onPreferenceChange }: PreferenceSettingsProps) => {
+  const { theme, setTheme } = useThemeContext();
   const handleChange = (key: string, value: string) => {
     onPreferenceChange(key, value);
+    if (key === 'theme') {
+      setTheme(value as any);
+    }
     toast({
       title: "Preferences Updated",
       description: "Your preferences have been saved.",
     });
   };
+
+  // keep select in sync with external changes (e.g., loaded from storage)
+  useEffect(() => {
+    if (preferences.theme !== theme) {
+      onPreferenceChange('theme', theme);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme]);
 
   return (
     <Card>
@@ -48,7 +61,6 @@ export const PreferenceSettings = ({ preferences, onPreferenceChange }: Preferen
               <SelectContent>
                 <SelectItem value="light">Light</SelectItem>
                 <SelectItem value="dark">Dark</SelectItem>
-                <SelectItem value="system">System</SelectItem>
               </SelectContent>
             </Select>
           </div>

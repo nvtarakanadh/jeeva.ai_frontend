@@ -110,13 +110,13 @@ const CalendarComponent: React.FC<CalendarComponentProps> = memo(({
           <div
             key={day.toString()}
             className={`min-h-[100px] p-2 border border-gray-200 ${
-              isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-            } ${isToday ? 'bg-blue-50' : ''} cursor-pointer hover:bg-gray-50 transition-colors`}
+              isCurrentMonth ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-950'
+            } ${isToday ? 'bg-blue-50 dark:bg-blue-900/20' : ''} cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:border-gray-700`}
             onClick={() => onDateClick?.(day)}
           >
             <div className="flex items-center justify-between mb-1">
               <span className={`text-sm font-medium ${
-                isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                isCurrentMonth ? 'text-gray-900 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'
               } ${isToday ? 'text-blue-600' : ''}`}>
                 {format(day, dateFormat)}
               </span>
@@ -186,17 +186,17 @@ const CalendarComponent: React.FC<CalendarComponentProps> = memo(({
       days.push(
         <div
           key={day.toString()}
-          className={`min-h-[200px] p-3 border border-gray-200 ${
-            isToday ? 'bg-blue-50' : 'bg-white'
-          } cursor-pointer hover:bg-gray-50 transition-colors`}
+          className={`min-h-[200px] p-3 border border-gray-200 dark:border-gray-700 ${
+            isToday ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-900'
+          } cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors`}
           onClick={() => onDateClick?.(day)}
         >
           <div className="flex items-center justify-between mb-3">
             <div>
-              <div className="text-sm font-medium text-gray-900">
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-200">
                 {format(day, 'EEEE')}
               </div>
-              <div className={`text-lg font-bold ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
+              <div className={`text-lg font-bold ${isToday ? 'text-blue-600' : 'text-gray-900 dark:text-gray-100'}`}>
                 {format(day, 'd')}
               </div>
             </div>

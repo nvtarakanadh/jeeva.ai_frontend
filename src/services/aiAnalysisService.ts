@@ -331,3 +331,12 @@ export const analyzeHealthRecordWithAI = async (recordData: {
     throw new Error('Backend AI analysis service is not available. Please check if the Django server is running on port 8000.');
   }
 };
+
+export const getAIAnalysisForRecord = async (recordId: string): Promise<AIAnalysisResult | null> => {
+  try {
+    const data = await getAnalysis(recordId);
+    return data?.analysis || null;
+  } catch (err) {
+    return null;
+  }
+};

@@ -2,6 +2,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { cacheService, createCacheKey, CACHE_TTL } from './cacheService';
 import { Prescription } from './prescriptionService';
 
+export interface PatientForPrescription {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+}
+
 // Optimized prescription fetching with caching
 export const getOptimizedPrescriptionsForDoctor = async (doctorProfileId: string): Promise<Prescription[]> => {
   const cacheKey = createCacheKey('prescriptions-doctor', doctorProfileId);
@@ -52,16 +58,17 @@ export const getOptimizedPrescriptionsForDoctor = async (doctorProfileId: string
 };
 
 // Optimized patient fetching for prescriptions
-export const getOptimizedPatientsForDoctor = async (doctorProfileId: string) => {
+export const getOptimizedPatientsForDoctor = async (doctorProfileId: string): Promise<PatientForPrescription[]> => {
   const cacheKey = createCacheKey('patients-for-prescriptions', doctorProfileId);
   
-  const cached = cacheService.get(cacheKey);
+  const cached = cacheService.get<PatientForPrescription[]>(cacheKey);
   if (cached) {
     return cached;
   }
 
   try {
     // Get patients who have active access with this doctor
+    // Using a distinct query to avoid duplicate patient_access entries
     const { data, error } = await supabase
       .from('patient_access')
       .select(`
@@ -77,16 +84,20 @@ export const getOptimizedPatientsForDoctor = async (doctorProfileId: string) => 
 
     if (error) throw error;
 
-    const patients = data?.map(access => ({
-      id: access.patient_id,
-      full_name: access.profiles?.full_name,
-      email: access.profiles?.email
-    })) || [];
+    // Create a Map to ensure we only have unique patients by patient_id
+    const uniquePatientsMap = new Map();
+    
+    (data as any)?.forEach((access: any) => {
+      if (access.patient_id && !uniquePatientsMap.has(access.patient_id)) {
+        uniquePatientsMap.set(access.patient_id, {
+          id: access.patient_id,
+          full_name: access.profiles?.full_name,
+          email: access.profiles?.email
+        });
+      }
+    });
 
-    // Remove duplicates based on patient ID
-    const uniquePatients = patients.filter((patient, index, self) => 
-      index === self.findIndex(p => p.id === patient.id)
-    );
+    const uniquePatients = Array.from(uniquePatientsMap.values()) as PatientForPrescription[];
 
     // Cache the result
     cacheService.set(cacheKey, uniquePatients, CACHE_TTL.LONG);

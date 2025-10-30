@@ -6,90 +6,54 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Brain, Activity, AlertTriangle, Lightbulb, TrendingUp, X, RefreshCw, AlertCircle, Upload } from 'lucide-react';
 import { InlineLoadingSpinner } from '@/components/ui/loading-spinner';
-import { analyzePrescription, AIAnalysisResult } from '@/services/aiAnalysisService';
+import { analyzePrescription, AIAnalysisResult, getAIAnalysisForRecord } from '@/services/aiAnalysisService';
+import { Prescription } from '@/services/prescriptionService';
+import { useEffect } from 'react';
 
 interface PrescriptionAnalysisModalProps {
   isOpen: boolean;
   onClose: () => void;
+  prescription: Prescription | null;
   onAnalysisComplete?: (result: AIAnalysisResult) => void;
 }
 
 export const PrescriptionAnalysisModal: React.FC<PrescriptionAnalysisModalProps> = ({
   isOpen,
   onClose,
-  onAnalysisComplete
+  prescription,
+  onAnalysisComplete,
 }) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // If closed or no prescription, render nothing
+  if (!isOpen || !prescription) return null;
+
   const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [recordId, setRecordId] = useState<string | null>(null);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      setAnalysis(null);
+  useEffect(() => {
+    let ignore = false;
+    const fetchAnalysis = async () => {
+      setIsLoading(true);
       setError(null);
-    }
-  };
-
-  const handleAnalyze = async () => {
-    if (!selectedFile) {
-      setError('Please select an image file first');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await analyzePrescription({
-        image: selectedFile,
-        title: 'Prescription Analysis',
-        description: 'AI analysis of prescription image',
-        recordType: 'prescription',
-        patientId: 'current-user', // You might want to get this from context
-        uploadedBy: 'current-user'
-      });
-
-      if (response.success) {
-        setAnalysis(response.analysis);
-        setRecordId(response.record_id);
-        
-        // Call the callback if provided
-        if (onAnalysisComplete) {
-          onAnalysisComplete(response.analysis);
-        }
-      } else {
-        setError('Analysis failed. Please try again.');
+      try {
+        const result = await getAIAnalysisForRecord(prescription.id);
+        if (!ignore) setAnalysis(result);
+      } catch (err: any) {
+        if (!ignore) setError(err.message || 'Failed to fetch AI analysis.');
+      } finally {
+        if (!ignore) setIsLoading(false);
       }
-    } catch (error: any) {
-      console.error('Error analyzing prescription:', error);
-      setError(`Analysis failed: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+    fetchAnalysis();
+    return () => {
+      ignore = true;
+    };
+  }, [prescription.id]);
 
   const handleClose = () => {
-    setSelectedFile(null);
     setAnalysis(null);
     setError(null);
-    setRecordId(null);
     onClose();
-  };
-
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'text-green-600';
-    if (confidence >= 0.6) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
-  const getConfidenceLabel = (confidence: number) => {
-    if (confidence >= 0.8) return 'High';
-    if (confidence >= 0.6) return 'Medium';
-    return 'Low';
   };
 
   return (
@@ -101,95 +65,26 @@ export const PrescriptionAnalysisModal: React.FC<PrescriptionAnalysisModalProps>
             AI Prescription Analysis
           </DialogTitle>
           <DialogDescription>
-            AI-powered analysis of your prescription with medication details, dosage information, and recommendations
+            AI-powered analysis of your prescription. This is the automatically generated result.
           </DialogDescription>
         </DialogHeader>
-
         <div className="space-y-6">
-          {/* File Upload Section */}
-          {!analysis && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Upload Prescription Image</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <p className="text-sm text-gray-600 mb-4">
-                      Upload a clear image of your prescription
-                    </p>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      id="prescription-upload"
-                    />
-                    <label
-                      htmlFor="prescription-upload"
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 cursor-pointer"
-                    >
-                      Choose Image
-                    </label>
-                  </div>
-                  
-                  {selectedFile && (
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm font-medium">Selected file:</p>
-                      <p className="text-sm text-gray-600">{selectedFile.name}</p>
-                      <p className="text-xs text-gray-500">
-                        Size: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                  )}
-
-                  <Button
-                    onClick={handleAnalyze}
-                    disabled={!selectedFile || isLoading}
-                    className="w-full"
-                  >
-                    {isLoading ? (
-                      <>
-                        <InlineLoadingSpinner />
-                        <span className="ml-2">Analyzing...</span>
-                      </>
-                    ) : (
-                      'Analyze Prescription'
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Analysis Results */}
           {isLoading && (
             <div className="flex items-center justify-center py-8">
               <InlineLoadingSpinner />
-              <span className="ml-2">Analyzing prescription with AI...</span>
+              <span className="ml-2">Loading AI analysis for this prescription...</span>
             </div>
           )}
-
           {error && (
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center text-red-600">
                   <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
                   <p>{error}</p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setError(null)}
-                    className="mt-4"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Try Again
-                  </Button>
                 </div>
               </CardContent>
             </Card>
           )}
-
           {analysis && (
             <div className="space-y-4">
               {/* Analysis Header */}
@@ -197,30 +92,13 @@ export const PrescriptionAnalysisModal: React.FC<PrescriptionAnalysisModalProps>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">AI Analysis Results</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge 
-                        variant="outline" 
-                        className={getConfidenceColor(analysis.confidence)}
-                      >
-                        {getConfidenceLabel(analysis.confidence)} Confidence
-                      </Badge>
-                      <span className="text-sm text-gray-500">
-                        {new Date().toLocaleDateString()}
-                      </span>
-                    </div>
+                    <span className="text-sm text-gray-500">
+                      {new Date().toLocaleDateString()}
+                    </span>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {/* Confidence Score */}
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Confidence Score</span>
-                        <span>{Math.round(analysis.confidence * 100)}%</span>
-                      </div>
-                      <Progress value={analysis.confidence * 100} className="h-2" />
-                    </div>
-
                     {/* Summary */}
                     <div>
                       <h4 className="font-medium mb-2 flex items-center gap-2">
@@ -321,27 +199,12 @@ export const PrescriptionAnalysisModal: React.FC<PrescriptionAnalysisModalProps>
               </Card>
             </div>
           )}
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-2">
-            {analysis && (
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSelectedFile(null);
-                  setAnalysis(null);
-                  setError(null);
-                }}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Analyze Another
-              </Button>
-            )}
-            <Button variant="outline" onClick={handleClose}>
-              <X className="h-4 w-4 mr-2" />
-              Close
-            </Button>
-          </div>
+          {!isLoading && !error && !analysis && (
+            <div className="flex flex-col items-center py-12 opacity-70">
+              <Brain className="h-12 w-12 text-indigo-400 mb-4" />
+              <span>AI analysis is being processed or not yet available for this prescription.</span>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
