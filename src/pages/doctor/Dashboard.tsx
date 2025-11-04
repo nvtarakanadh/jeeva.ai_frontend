@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +31,7 @@ import WelcomeDashboard from '@/components/dashboard/WelcomeDashboard';
 const DoctorDashboard = () => {
   const { user, updateProfile } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [stats, setStats] = useState<DashboardStats>({
     totalPatients: 0,
     pendingConsents: 0,
@@ -75,7 +77,7 @@ const DoctorDashboard = () => {
           .from('profiles')
           .select('id')
           .eq('user_id', user.id)
-          .single();
+          .single() as { data: { id: string } | null; error: any };
 
         if (error || !doctorProfile) {
           console.error('❌ Error finding doctor profile:', error);
@@ -163,7 +165,7 @@ const DoctorDashboard = () => {
         .from('profiles')
         .select('id, user_id, full_name, email, phone')
         .eq('role', 'patient')
-        .order('full_name', { ascending: true });
+        .order('full_name', { ascending: true }) as { data: Array<{ id: string; user_id: string; full_name: string; email: string; phone: string }> | null; error: any };
 
       if (error) {
         console.error('Error fetching patients:', error);
@@ -319,15 +321,14 @@ const DoctorDashboard = () => {
     try {
       // Update in database
       if (events.find(e => e.id === eventId)?.type === 'consultation') {
-        const { error } = await supabase
-          .from('consultations')
-          .update({
-            consultation_date: newStart.toISOString().split('T')[0],
-            consultation_time: newStart.toTimeString().split(' ')[0]
-          })
-          .eq('id', eventId);
-        
-        if (error) throw error;
+        // Use ScheduleService for type safety
+        await ScheduleService.updateConsultation(eventId, {
+          consultationDate: newStart.toISOString().split('T')[0],
+          consultationTime: newStart.toTimeString().split(' ')[0],
+          reason: events.find(e => e.id === eventId)?.title || '',
+          notes: events.find(e => e.id === eventId)?.notes || '',
+          status: events.find(e => e.id === eventId)?.status === 'confirmed' ? 'confirmed' : 'scheduled'
+        });
       }
       
       // Update local state
@@ -770,11 +771,11 @@ const DoctorDashboard = () => {
 
   // Memoize quick stats to prevent unnecessary re-renders
   const quickStats = useMemo(() => [
-    { label: 'Total Patients', value: stats.totalPatients.toString(), icon: Users, href: '/doctor/patients' },
-    { label: 'Pending Consents', value: stats.pendingConsents.toString(), icon: Clock, href: '/doctor/consents' },
-    { label: 'Active Consents', value: stats.activeConsents.toString(), icon: CheckCircle, href: '/doctor/consents' },
-    { label: 'Schedule', value: events.length.toString(), icon: Calendar, href: '#' },
-  ], [stats, events]);
+    { label: t('dashboard.totalPatients'), value: stats.totalPatients.toString(), icon: Users, href: '/doctor/patients' },
+    { label: t('dashboard.pendingConsents'), value: stats.pendingConsents.toString(), icon: Clock, href: '/doctor/consents' },
+    { label: t('dashboard.activeConsents'), value: stats.activeConsents.toString(), icon: CheckCircle, href: '/doctor/consents' },
+    { label: t('dashboard.schedule'), value: events.length.toString(), icon: Calendar, href: '#' },
+  ], [stats, events, t]);
 
   // Memoize calendar handlers to prevent unnecessary re-renders
   const calendarHandlers = useMemo(() => ({
@@ -881,7 +882,7 @@ const DoctorDashboard = () => {
             <div className="mx-auto mb-4 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
               <Activity className="w-6 h-6 text-red-600" />
             </div>
-            <CardTitle className="text-xl text-gray-900">Unable to Load Dashboard</CardTitle>
+            <CardTitle className="text-xl text-gray-900">{t('errors.unableToLoadDashboard')}</CardTitle>
             <CardDescription className="text-gray-600 mt-2">
               {error}
             </CardDescription>
@@ -890,9 +891,9 @@ const DoctorDashboard = () => {
             <div className="text-sm text-gray-500">
               <p>This might be due to:</p>
               <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Network connection issues</li>
-                <li>Backend service unavailable</li>
-                <li>Database connection problems</li>
+                <li>{t('errors.networkConnectionIssues')}</li>
+                <li>{t('errors.backendServiceUnavailable')}</li>
+                <li>{t('errors.databaseConnectionProblems')}</li>
               </ul>
             </div>
             <div className="flex gap-2">
@@ -900,13 +901,13 @@ const DoctorDashboard = () => {
                 onClick={() => window.location.reload()}
                 className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
               >
-                Retry
+                {t('errors.retry')}
               </button>
               <button
                 onClick={() => navigate('/')}
                 className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors"
               >
-                Go Home
+                {t('errors.goHome')}
               </button>
             </div>
           </CardContent>
@@ -929,8 +930,8 @@ const DoctorDashboard = () => {
 
 
       <div>
-        <h1 className="text-3xl font-bold">Welcome back, Dr. {user?.name}</h1>
-        <p className="text-muted-foreground">Here's your practice overview</p>
+        <h1 className="text-3xl font-bold">{t('dashboard.doctorWelcomeBack', { name: user?.name || '' })}</h1>
+        <p className="text-muted-foreground">{t('dashboard.practiceOverview')}</p>
       </div>
 
       {/* Doctor Profile (inline quick editor) - temporarily hidden per request */}
@@ -1069,8 +1070,8 @@ const DoctorDashboard = () => {
       {/* Recent Activity */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest updates in your practice</CardDescription>
+          <CardTitle>{t('dashboard.recentActivity')}</CardTitle>
+          <CardDescription>{t('dashboard.latestUpdates')}</CardDescription>
         </CardHeader>
         <CardContent>
           <ProgressiveList
@@ -1092,7 +1093,7 @@ const DoctorDashboard = () => {
           {!loading && recentActivity.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No recent activity</p>
+              <p>{t('dashboard.noRecentActivity')}</p>
             </div>
           )}
         </CardContent>

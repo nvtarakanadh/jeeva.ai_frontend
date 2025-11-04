@@ -7,8 +7,11 @@ import { Lock, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export const PasswordSettings = () => {
+  const { t } = useLanguage();
+  const { toast } = useToast();
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -18,11 +21,11 @@ export const PasswordSettings = () => {
   const [isReauthenticating, setIsReauthenticating] = useState(false);
 
   const passwordSchema = z.object({
-    currentPassword: z.string().min(1, { message: 'Current password is required' }),
-    newPassword: z.string().min(6, { message: 'New password must be at least 6 characters' }).max(128),
+    currentPassword: z.string().min(1, { message: t('settings.password.currentPasswordRequired') }),
+    newPassword: z.string().min(6, { message: t('settings.password.newPasswordMinLength') }).max(128),
     confirmPassword: z.string()
   }).refine((data) => data.newPassword === data.confirmPassword, {
-    message: 'Passwords do not match',
+    message: t('settings.password.passwordsDoNotMatch'),
     path: ['confirmPassword']
   });
 
@@ -92,7 +95,7 @@ export const PasswordSettings = () => {
       });
 
       if (!reauthResponse.ok) {
-        throw new Error('Current password is incorrect. Please try again.');
+        throw new Error(t('settings.password.currentPasswordIncorrect'));
       }
 
       const reauthData = await reauthResponse.json();
@@ -116,14 +119,14 @@ export const PasswordSettings = () => {
       }
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       toast({ 
-        title: 'Password updated', 
-        description: 'Your password has been changed successfully.' 
+        title: t('settings.password.passwordUpdated'), 
+        description: t('settings.password.passwordChanged')
       });
     } catch (error: any) {
       console.error('Password update failed:', error);
       toast({ 
-        title: 'Update failed', 
-        description: error.message || 'Could not change password. Please try again.', 
+        title: t('settings.password.updateFailed'), 
+        description: error.message || t('settings.password.couldNotChangePassword'), 
         variant: 'destructive' 
       });
     } finally {
@@ -132,46 +135,44 @@ export const PasswordSettings = () => {
     }
   };
 
-  const { toast } = useToast();
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Lock className="h-5 w-5" />
-          Password & Security
+          {t('settings.password.title')}
         </CardTitle>
-        <p className="text-sm text-gray-600">Update your account password</p>
+        <p className="text-sm text-gray-600">{t('settings.password.description')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="currentPassword">Current Password</Label>
+            <Label htmlFor="currentPassword">{t('settings.password.currentPassword')}</Label>
             <Input
               id="currentPassword"
               type="password"
-              placeholder="Enter your current password"
+              placeholder={t('settings.password.enterCurrentPassword')}
               value={passwordForm.currentPassword}
               onChange={(e) => setPasswordForm(p => ({ ...p, currentPassword: e.target.value }))}
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
+              <Label htmlFor="newPassword">{t('settings.password.newPassword')}</Label>
               <Input
                 id="newPassword"
                 type="password"
-                placeholder="Enter new password"
+                placeholder={t('settings.password.enterNewPassword')}
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm(p => ({ ...p, newPassword: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Label htmlFor="confirmPassword">{t('settings.password.confirmPassword')}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder="Confirm new password"
+                placeholder={t('settings.password.confirmNewPassword')}
                 value={passwordForm.confirmPassword}
                 onChange={(e) => setPasswordForm(p => ({ ...p, confirmPassword: e.target.value }))}
               />
@@ -181,7 +182,7 @@ export const PasswordSettings = () => {
         <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
           <Shield className="h-4 w-4 text-blue-600" />
           <p className="text-sm text-blue-800">
-            For security, you must enter your current password to change it.
+            {t('settings.password.securityNote')}
           </p>
         </div>
         <Button 
@@ -189,7 +190,7 @@ export const PasswordSettings = () => {
           disabled={isUpdatingPassword || !passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}
           className="w-full"
         >
-          {isReauthenticating ? 'Verifying...' : isUpdatingPassword ? 'Updating...' : 'Update Password'}
+          {isReauthenticating ? t('settings.password.verifying') : isUpdatingPassword ? t('settings.password.updating') : t('settings.password.updatePassword')}
         </Button>
       </CardContent>
     </Card>

@@ -8,8 +8,10 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { NavigationProvider } from "@/contexts/NavigationContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import "@/config/i18n"; // Initialize i18n
 import { PageSkeleton } from "@/components/ui/skeleton-loading";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
@@ -61,7 +63,8 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
+        <LanguageProvider>
+          <TooltipProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -271,6 +274,7 @@ const App = () => {
             </NavigationProvider>
           </BrowserRouter>
         </TooltipProvider>
+        </LanguageProvider>
       </ThemeProvider>
   </QueryClientProvider>
   );

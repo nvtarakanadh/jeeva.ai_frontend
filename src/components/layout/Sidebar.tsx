@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from '@/contexts/SidebarContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { 
@@ -43,50 +44,6 @@ interface NavItem {
   badge?: string;
 }
 
-const patientNavItems: NavItem[] = [
-  { label: 'Dashboard', icon: Home, href: '/dashboard', roles: ['patient'] },
-  { label: 'Health Records', icon: FileText, href: '/records', roles: ['patient'] },
-  { label: 'Consultations', icon: Stethoscope, href: '/consultations', roles: ['patient'] },
-  { label: 'Prescriptions', icon: Pill, href: '/prescriptions', roles: ['patient'] },
-  { label: 'Consultation Notes', icon: Stethoscope, href: '/consultation-notes', roles: ['patient'] },
-  { label: 'Consent Management', icon: Shield, href: '/consents', roles: ['patient'] },
-  { label: 'Share Data', icon: Hospital, href: '/share-data', roles: ['patient'] },
-];
-
-const patientComingSoonNavItems: NavItem[] = [
-  { label: 'Vendors', icon: Building2, href: '/vendors', roles: ['patient'] },
-  { label: 'Medical Device Companies', icon: Microscope, href: '/medical-device-companies', roles: ['patient'] },
-  { label: 'Insurance Partners', icon: Heart, href: '/insurance-partners', roles: ['patient'] },
-  { label: 'Pharmacies', icon: Store, href: '/pharmacies', roles: ['patient'] },
-  { label: 'Loans', icon: IndianRupee, href: '/loans', roles: ['patient'] },
-  { label: 'Coupons & Schemes', icon: Ticket, href: '/coupons-schemes', roles: ['patient'] },
-  { label: 'Medical Tourism', icon: Plane, href: '/medical-tourism', roles: ['patient'] },
-  { label: 'Clinical Research', icon: TestTube, href: '/clinical-research', roles: ['patient'] },
-  { label: 'Finance Partners', icon: Wallet, href: '/finance-partners', roles: ['patient'] },
-];
-
-const doctorComingSoonNavItems: NavItem[] = [
-  { label: 'Vendors', icon: Building2, href: '/doctor/vendors', roles: ['doctor'] },
-  { label: 'Medical Device Companies', icon: Microscope, href: '/doctor/medical-device-companies', roles: ['doctor'] },
-  { label: 'Insurance Partners', icon: Heart, href: '/doctor/insurance-partners', roles: ['doctor'] },
-  { label: 'Pharmacies', icon: Store, href: '/doctor/pharmacies', roles: ['doctor'] },
-  { label: 'Loans', icon: IndianRupee, href: '/doctor/loans', roles: ['doctor'] },
-  { label: 'Coupons & Schemes', icon: Ticket, href: '/doctor/coupons-schemes', roles: ['doctor'] },
-  { label: 'Medical Tourism', icon: Plane, href: '/doctor/medical-tourism', roles: ['doctor'] },
-  { label: 'Clinical Research', icon: TestTube, href: '/doctor/clinical-research', roles: ['doctor'] },
-  { label: 'Finance Partners', icon: Wallet, href: '/doctor/finance-partners', roles: ['doctor'] },
-];
-
-const doctorNavItems: NavItem[] = [
-  { label: 'Dashboard', icon: Home, href: '/doctor/dashboard', roles: ['doctor'] },
-  { label: 'My Patients', icon: Users, href: '/doctor/patients', roles: ['doctor'] },
-  { label: 'Consultations', icon: Stethoscope, href: '/doctor/consultations', roles: ['doctor'] },
-  { label: 'Prescriptions', icon: Pill, href: '/doctor/prescriptions', roles: ['doctor'] },
-  { label: 'Consultation Notes', icon: Stethoscope, href: '/doctor/consultation-notes', roles: ['doctor'] },
-  { label: 'Consent Requests', icon: Shield, href: '/doctor/consents', roles: ['doctor'] },
-];
-
-
 type SidebarProps = { forceExpanded?: boolean };
 
 export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
@@ -94,10 +51,55 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
   const { isCollapsed, setIsCollapsed } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   // For mobile sidebar (forceExpanded=true), always show expanded view
   // For desktop sidebar, use the global collapsed state
   const shouldShowExpanded = forceExpanded || !isCollapsed;
+
+  // Create nav items with translations
+  const patientNavItems: NavItem[] = [
+    { label: t('navigation.dashboard'), icon: Home, href: '/dashboard', roles: ['patient'] },
+    { label: t('navigation.healthRecords'), icon: FileText, href: '/records', roles: ['patient'] },
+    { label: t('navigation.consultations'), icon: Stethoscope, href: '/consultations', roles: ['patient'] },
+    { label: t('navigation.prescriptions'), icon: Pill, href: '/prescriptions', roles: ['patient'] },
+    { label: t('navigation.consultationNotes'), icon: Stethoscope, href: '/consultation-notes', roles: ['patient'] },
+    { label: t('navigation.consentManagement'), icon: Shield, href: '/consents', roles: ['patient'] },
+    { label: t('navigation.shareData'), icon: Hospital, href: '/share-data', roles: ['patient'] },
+  ];
+
+  const patientComingSoonNavItems: NavItem[] = [
+    { label: t('navigation.vendors'), icon: Building2, href: '/vendors', roles: ['patient'] },
+    { label: t('navigation.medicalDeviceCompanies'), icon: Microscope, href: '/medical-device-companies', roles: ['patient'] },
+    { label: t('navigation.insurancePartners'), icon: Heart, href: '/insurance-partners', roles: ['patient'] },
+    { label: t('navigation.pharmacies'), icon: Store, href: '/pharmacies', roles: ['patient'] },
+    { label: t('navigation.loans'), icon: IndianRupee, href: '/loans', roles: ['patient'] },
+    { label: t('navigation.couponsSchemes'), icon: Ticket, href: '/coupons-schemes', roles: ['patient'] },
+    { label: t('navigation.medicalTourism'), icon: Plane, href: '/medical-tourism', roles: ['patient'] },
+    { label: t('navigation.clinicalResearch'), icon: TestTube, href: '/clinical-research', roles: ['patient'] },
+    { label: t('navigation.financePartners'), icon: Wallet, href: '/finance-partners', roles: ['patient'] },
+  ];
+
+  const doctorComingSoonNavItems: NavItem[] = [
+    { label: t('navigation.vendors'), icon: Building2, href: '/doctor/vendors', roles: ['doctor'] },
+    { label: t('navigation.medicalDeviceCompanies'), icon: Microscope, href: '/doctor/medical-device-companies', roles: ['doctor'] },
+    { label: t('navigation.insurancePartners'), icon: Heart, href: '/doctor/insurance-partners', roles: ['doctor'] },
+    { label: t('navigation.pharmacies'), icon: Store, href: '/doctor/pharmacies', roles: ['doctor'] },
+    { label: t('navigation.loans'), icon: IndianRupee, href: '/doctor/loans', roles: ['doctor'] },
+    { label: t('navigation.couponsSchemes'), icon: Ticket, href: '/doctor/coupons-schemes', roles: ['doctor'] },
+    { label: t('navigation.medicalTourism'), icon: Plane, href: '/doctor/medical-tourism', roles: ['doctor'] },
+    { label: t('navigation.clinicalResearch'), icon: TestTube, href: '/doctor/clinical-research', roles: ['doctor'] },
+    { label: t('navigation.financePartners'), icon: Wallet, href: '/doctor/finance-partners', roles: ['doctor'] },
+  ];
+
+  const doctorNavItems: NavItem[] = [
+    { label: t('navigation.dashboard'), icon: Home, href: '/doctor/dashboard', roles: ['doctor'] },
+    { label: t('navigation.myPatients'), icon: Users, href: '/doctor/patients', roles: ['doctor'] },
+    { label: t('navigation.consultations'), icon: Stethoscope, href: '/doctor/consultations', roles: ['doctor'] },
+    { label: t('navigation.prescriptions'), icon: Pill, href: '/doctor/prescriptions', roles: ['doctor'] },
+    { label: t('navigation.consultationNotes'), icon: Stethoscope, href: '/doctor/consultation-notes', roles: ['doctor'] },
+    { label: t('navigation.consentRequests'), icon: Shield, href: '/doctor/consents', roles: ['doctor'] },
+  ];
 
   const navItems = user?.role === 'doctor' ? doctorNavItems : patientNavItems;
   const comingSoonItems = user?.role === 'doctor' ? doctorComingSoonNavItems : patientComingSoonNavItems;

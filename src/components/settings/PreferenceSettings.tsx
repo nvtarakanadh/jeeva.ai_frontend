@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useThemeContext } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -17,14 +18,18 @@ interface PreferenceSettingsProps {
 
 export const PreferenceSettings = ({ preferences, onPreferenceChange }: PreferenceSettingsProps) => {
   const { theme, setTheme } = useThemeContext();
+  const { language, setLanguage, t } = useLanguage();
   const handleChange = (key: string, value: string) => {
     onPreferenceChange(key, value);
     if (key === 'theme') {
       setTheme(value as any);
     }
+    if (key === 'language') {
+      setLanguage(value as 'en' | 'hi' | 'te' | 'ta');
+    }
     toast({
-      title: "Preferences Updated",
-      description: "Your preferences have been saved.",
+      title: t('settings.preferences.updated'),
+      description: t('settings.preferences.saved'),
     });
   };
 
@@ -36,21 +41,28 @@ export const PreferenceSettings = ({ preferences, onPreferenceChange }: Preferen
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme]);
 
+  // Sync language from context to preferences
+  useEffect(() => {
+    if (preferences.language !== language) {
+      onPreferenceChange('language', language);
+    }
+  }, [language]);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <SettingsIcon className="h-5 w-5" />
-          Preferences
+          {t('settings.preferences.title')}
         </CardTitle>
         <CardDescription>
-          Customize your app experience
+          {t('settings.preferences.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label>Theme</Label>
+            <Label>{t('settings.preferences.theme')}</Label>
             <Select 
               value={preferences.theme} 
               onValueChange={(value) => handleChange('theme', value)}
@@ -59,16 +71,16 @@ export const PreferenceSettings = ({ preferences, onPreferenceChange }: Preferen
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="light">Light</SelectItem>
-                <SelectItem value="dark">Dark</SelectItem>
+                <SelectItem value="light">{t('settings.preferences.light')}</SelectItem>
+                <SelectItem value="dark">{t('settings.preferences.dark')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>Language</Label>
+            <Label>{t('settings.preferences.language')}</Label>
             <Select 
-              value={preferences.language} 
+              value={language} 
               onValueChange={(value) => handleChange('language', value)}
             >
               <SelectTrigger>
@@ -84,7 +96,7 @@ export const PreferenceSettings = ({ preferences, onPreferenceChange }: Preferen
           </div>
 
           <div className="space-y-2">
-            <Label>Timezone</Label>
+            <Label>{t('settings.preferences.timezone')}</Label>
             <Select 
               value={preferences.timezone} 
               onValueChange={(value) => handleChange('timezone', value)}

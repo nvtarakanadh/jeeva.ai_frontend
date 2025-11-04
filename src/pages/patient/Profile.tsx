@@ -6,12 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Patient } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import { User, Calendar, Phone, Mail, Heart, AlertTriangle, Shield } from 'lucide-react';
 
 const Profile = () => {
   const { user, updateProfile } = useAuth();
+  const { t } = useLanguage();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -84,9 +86,9 @@ const Profile = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">My Profile</h1>
+        <h1 className="text-3xl font-bold">{t('profile.title')}</h1>
         <p className="text-muted-foreground">
-          Manage your personal information and health details
+          {t('profile.description')}
         </p>
       </div>
 
@@ -96,10 +98,10 @@ const Profile = () => {
           <div>
             <CardTitle className="flex items-center gap-2">
               <User className="h-5 w-5" />
-              Personal Information
+              {t('profile.personalInformation')}
             </CardTitle>
             <CardDescription>
-              Your basic profile information
+              {t('profile.personalInformationDescription')}
             </CardDescription>
           </div>
           <Button 
@@ -107,13 +109,13 @@ const Profile = () => {
             onClick={() => isEditing ? handleSave() : setIsEditing(true)}
             disabled={isSaving}
           >
-            {isSaving ? 'Saving...' : (isEditing ? 'Save Changes' : 'Edit Profile')}
+            {isSaving ? t('profile.saving') : (isEditing ? t('profile.saveChanges') : t('profile.editProfile'))}
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">{t('profile.fullName')}</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -122,7 +124,7 @@ const Profile = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('profile.email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -132,7 +134,7 @@ const Profile = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">{t('profile.phone')}</Label>
               <Input
                 id="phone"
                 value={formData.phone}
@@ -141,7 +143,7 @@ const Profile = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="dateOfBirth">Date of Birth</Label>
+              <Label htmlFor="dateOfBirth">{t('profile.dateOfBirth')}</Label>
               <Input
                 id="dateOfBirth"
                 type="date"
@@ -151,31 +153,31 @@ const Profile = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="gender">Gender</Label>
+              <Label htmlFor="gender">{t('profile.gender')}</Label>
               <Select 
                 value={formData.gender} 
                 onValueChange={(value) => handleInputChange('gender', value)}
                 disabled={!isEditing}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select gender" />
+                  <SelectValue placeholder={t('profile.selectGender')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="male">{t('profile.male')}</SelectItem>
+                  <SelectItem value="female">{t('profile.female')}</SelectItem>
+                  <SelectItem value="other">{t('profile.other')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="bloodType">Blood Type</Label>
+              <Label htmlFor="bloodType">{t('profile.bloodType')}</Label>
               <Select 
                 value={formData.bloodType} 
                 onValueChange={(value) => handleInputChange('bloodType', value)}
                 disabled={!isEditing}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select blood type" />
+                  <SelectValue placeholder={t('profile.selectBloodType')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="A+">A+</SelectItem>
@@ -198,21 +200,21 @@ const Profile = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Heart className="h-5 w-5" />
-            Medical Information
+            {t('profile.medicalInformation')}
           </CardTitle>
           <CardDescription>
-            Important medical details for healthcare providers
+            {t('profile.medicalInformationDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="allergies">Allergies (comma-separated)</Label>
+            <Label htmlFor="allergies">{t('profile.allergies')}</Label>
             <Textarea
               id="allergies"
               value={formData.allergies}
               onChange={(e) => handleInputChange('allergies', e.target.value)}
               disabled={!isEditing}
-              placeholder="e.g., Penicillin, Peanuts, Shellfish"
+              placeholder={t('profile.allergiesPlaceholder')}
             />
           </div>
         </CardContent>
@@ -223,16 +225,16 @@ const Profile = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5" />
-            Emergency Contact
+            {t('profile.emergencyContact')}
           </CardTitle>
           <CardDescription>
-            Person to contact in case of emergency
+            {t('profile.emergencyContactDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="emergencyContactName">Name</Label>
+              <Label htmlFor="emergencyContactName">{t('profile.contactName')}</Label>
               <Input
                 id="emergencyContactName"
                 value={formData.emergencyContactName}
@@ -241,7 +243,7 @@ const Profile = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="emergencyContactPhone">Phone</Label>
+              <Label htmlFor="emergencyContactPhone">{t('profile.contactPhone')}</Label>
               <Input
                 id="emergencyContactPhone"
                 value={formData.emergencyContactPhone}
@@ -250,13 +252,13 @@ const Profile = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="emergencyContactRelationship">Relationship</Label>
+              <Label htmlFor="emergencyContactRelationship">{t('profile.relationship')}</Label>
               <Input
                 id="emergencyContactRelationship"
                 value={formData.emergencyContactRelationship}
                 onChange={(e) => handleInputChange('emergencyContactRelationship', e.target.value)}
                 disabled={!isEditing}
-                placeholder="e.g., Spouse, Parent, Sibling"
+                placeholder={t('profile.relationshipPlaceholder')}
               />
             </div>
           </div>
@@ -268,10 +270,10 @@ const Profile = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
-            Privacy & Security
+            {t('profile.privacySecurity')}
           </CardTitle>
           <CardDescription>
-            Your data is encrypted and secure
+            {t('profile.privacySecurityDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -279,16 +281,16 @@ const Profile = () => {
             <div className="flex items-start gap-3 p-4 bg-accent-light rounded-lg">
               <Shield className="h-5 w-5 text-accent mt-0.5" />
               <div>
-                <p className="font-medium">ABDM Compliant</p>
+                <p className="font-medium">{t('profile.abdmCompliant')}</p>
                 <p className="text-sm text-muted-foreground">
-                  Your profile follows Ayushman Bharat Digital Mission guidelines for secure health data management.
+                  {t('profile.abdmCompliantDescription')}
                 </p>
               </div>
             </div>
             <div className="text-sm text-muted-foreground">
-              <p>• All data is encrypted at rest and in transit</p>
-              <p>• Access is controlled through explicit consent</p>
-              <p>• You can revoke data access at any time</p>
+              <p>• {t('profile.dataEncrypted')}</p>
+              <p>• {t('profile.accessControlled')}</p>
+              <p>• {t('profile.revokeAccess')}</p>
             </div>
           </div>
         </CardContent>

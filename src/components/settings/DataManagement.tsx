@@ -4,21 +4,23 @@ import { Button } from '@/components/ui/button';
 import { Download, Trash2, FileText, Lock, AlertTriangle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export const DataManagement = () => {
   const { logout } = useAuth();
+  const { t } = useLanguage();
 
   const handleExportData = () => {
     toast({
-      title: "Data Export Started",
-      description: "Your health data export will be ready shortly. You'll receive an email when complete.",
+      title: t('settings.dataManagement.dataExportStarted'),
+      description: t('settings.dataManagement.exportMessage'),
     });
   };
 
   const handleDeleteAccount = () => {
     toast({
-      title: "Account Deletion",
-      description: "Please contact support to delete your account permanently.",
+      title: t('settings.dataManagement.accountDeletion'),
+      description: t('settings.dataManagement.contactSupport'),
       variant: "destructive",
     });
   };
@@ -30,10 +32,10 @@ export const DataManagement = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Data Management
+            {t('settings.dataManagement.title')}
           </CardTitle>
           <CardDescription>
-            Export, backup, or delete your health data
+            {t('settings.dataManagement.description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -42,12 +44,12 @@ export const DataManagement = () => {
               <div className="flex items-center gap-3">
                 <Download className="h-5 w-5 text-primary" />
                 <div>
-                  <p className="font-medium">Export Health Data</p>
-                  <p className="text-sm text-muted-foreground">Download all your health records and data</p>
+                  <p className="font-medium">{t('settings.dataManagement.exportHealthData')}</p>
+                  <p className="text-sm text-muted-foreground">{t('settings.dataManagement.exportDescription')}</p>
                 </div>
               </div>
               <Button onClick={handleExportData} variant="outline">
-                Export Data
+                {t('settings.dataManagement.exportData')}
               </Button>
             </div>
 
@@ -55,12 +57,12 @@ export const DataManagement = () => {
               <div className="flex items-center gap-3">
                 <Trash2 className="h-5 w-5 text-destructive" />
                 <div>
-                  <p className="font-medium text-destructive">Delete Account</p>
-                  <p className="text-sm text-muted-foreground">Permanently delete your account and all data</p>
+                  <p className="font-medium text-destructive">{t('settings.dataManagement.deleteAccount')}</p>
+                  <p className="text-sm text-muted-foreground">{t('settings.dataManagement.deleteDescription')}</p>
                 </div>
               </div>
               <Button onClick={handleDeleteAccount} variant="destructive">
-                Delete Account
+                {t('settings.dataManagement.deleteAccount')}
               </Button>
             </div>
           </div>
@@ -72,24 +74,24 @@ export const DataManagement = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Lock className="h-5 w-5" />
-            Account Actions
+            {t('settings.accountActions.title')}
           </CardTitle>
           <CardDescription>
-            Manage your account session and security
+            {t('settings.accountActions.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <Button onClick={logout} variant="outline" className="w-full">
-              Sign Out
+              {t('common.signOut')}
             </Button>
             
             <div className="flex items-start gap-3 p-4 bg-accent-light rounded-lg">
               <AlertTriangle className="h-5 w-5 text-accent mt-0.5" />
               <div>
-                <p className="font-medium">ABDM Compliant</p>
+                <p className="font-medium">{t('settings.accountActions.abdmCompliant')}</p>
                 <p className="text-sm text-muted-foreground">
-                  All settings and data handling comply with Ayushman Bharat Digital Mission guidelines for secure health data management.
+                  {t('settings.accountActions.abdmDescription')}
                 </p>
               </div>
             </div>

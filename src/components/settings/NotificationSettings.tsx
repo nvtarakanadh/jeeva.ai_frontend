@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Bell } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface NotificationSettingsProps {
   notifications: {
@@ -18,11 +19,12 @@ interface NotificationSettingsProps {
 }
 
 export const NotificationSettings = ({ notifications, onNotificationChange }: NotificationSettingsProps) => {
+  const { t } = useLanguage();
   const handleChange = (key: string, value: boolean) => {
     onNotificationChange(key, value);
     toast({
-      title: "Settings Updated",
-      description: "Notification preferences have been saved.",
+      title: t('settings.notifications.updated'),
+      description: t('settings.notifications.saved'),
     });
   };
 
@@ -31,18 +33,18 @@ export const NotificationSettings = ({ notifications, onNotificationChange }: No
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Bell className="h-5 w-5" />
-          Notifications
+          {t('settings.notifications.title')}
         </CardTitle>
         <CardDescription>
-          Choose how you want to be notified about important events
+          {t('settings.notifications.chooseHow')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Email Notifications</Label>
-              <p className="text-sm text-muted-foreground">Receive updates via email</p>
+              <Label>{t('settings.notifications.emailNotifications')}</Label>
+              <p className="text-sm text-muted-foreground">{t('settings.notifications.emailDescription')}</p>
             </div>
             <Switch
               checked={notifications.email}
@@ -52,8 +54,8 @@ export const NotificationSettings = ({ notifications, onNotificationChange }: No
           
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Push Notifications</Label>
-              <p className="text-sm text-muted-foreground">Receive browser notifications</p>
+              <Label>{t('settings.notifications.pushNotifications')}</Label>
+              <p className="text-sm text-muted-foreground">{t('settings.notifications.pushDescription')}</p>
             </div>
             <Switch
               checked={notifications.push}
@@ -63,8 +65,8 @@ export const NotificationSettings = ({ notifications, onNotificationChange }: No
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>SMS Notifications</Label>
-              <p className="text-sm text-muted-foreground">Receive text messages for urgent updates</p>
+              <Label>{t('settings.notifications.smsNotifications')}</Label>
+              <p className="text-sm text-muted-foreground">{t('settings.notifications.smsDescription')}</p>
             </div>
             <Switch
               checked={notifications.sms}
@@ -74,8 +76,8 @@ export const NotificationSettings = ({ notifications, onNotificationChange }: No
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>AI Insights</Label>
-              <p className="text-sm text-muted-foreground">Get notified when AI analysis is complete</p>
+              <Label>{t('settings.notifications.aiInsights')}</Label>
+              <p className="text-sm text-muted-foreground">{t('settings.notifications.aiInsightsDescription')}</p>
             </div>
             <Switch
               checked={notifications.aiInsights}
@@ -85,8 +87,8 @@ export const NotificationSettings = ({ notifications, onNotificationChange }: No
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Consent Requests</Label>
-              <p className="text-sm text-muted-foreground">Get notified of new consent requests</p>
+              <Label>{t('settings.notifications.consentRequests')}</Label>
+              <p className="text-sm text-muted-foreground">{t('settings.notifications.consentRequestsDescription')}</p>
             </div>
             <Switch
               checked={notifications.consentRequests}
@@ -96,8 +98,8 @@ export const NotificationSettings = ({ notifications, onNotificationChange }: No
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Record Sharing</Label>
-              <p className="text-sm text-muted-foreground">Get notified when records are shared</p>
+              <Label>{t('settings.notifications.recordSharing')}</Label>
+              <p className="text-sm text-muted-foreground">{t('settings.notifications.recordSharingDescription')}</p>
             </div>
             <Switch
               checked={notifications.recordSharing}

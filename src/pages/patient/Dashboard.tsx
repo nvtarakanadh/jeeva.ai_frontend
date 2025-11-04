@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, Shield, Activity, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +17,7 @@ import { toast } from '@/hooks/use-toast';
 const PatientDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -516,8 +518,8 @@ const PatientDashboard = () => {
           console.log('📡 Table:', payload.table);
           console.log('📡 New record:', payload.new);
           console.log('📡 Old record:', payload.old);
-          console.log('📡 Patient ID in new record:', payload.new?.patient_id);
-          console.log('📡 Doctor ID in new record:', payload.new?.doctor_id);
+          console.log('📡 Patient ID in new record:', (payload.new as any)?.patient_id);
+          console.log('📡 Doctor ID in new record:', (payload.new as any)?.doctor_id);
           // Reload ALL appointments when any change occurs to any appointment
           reloadAllAppointments();
         }
@@ -684,13 +686,13 @@ const PatientDashboard = () => {
 
   const quickStats = [
     { 
-      label: 'Health Records', 
+      label: t('navigation.healthRecords'), 
       value: healthRecords.totalRecords.toString(), 
       icon: FileText, 
       href: '/records' 
     },
     { 
-      label: 'Active Consents', 
+      label: t('dashboard.activeConsents'), 
       value: activeConsents.toString(), 
       icon: Shield, 
       href: '/consents' 
@@ -709,7 +711,7 @@ const PatientDashboard = () => {
             <div className="mx-auto mb-4 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
               <AlertCircle className="w-6 h-6 text-red-600" />
             </div>
-            <CardTitle className="text-xl text-gray-900">Unable to Load Dashboard</CardTitle>
+            <CardTitle className="text-xl text-gray-900">{t('errors.unableToLoadDashboard')}</CardTitle>
             <CardDescription className="text-gray-600 mt-2">
               {error}
             </CardDescription>
@@ -719,7 +721,7 @@ const PatientDashboard = () => {
                 onClick={() => window.location.reload()}
               className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
               >
-                Retry
+                {t('errors.retry')}
               </button>
           </CardContent>
         </Card>
@@ -733,8 +735,8 @@ const PatientDashboard = () => {
       <QuickActions />
       
       <div>
-        <h1 className="text-3xl font-bold">Welcome back, {user?.name}</h1>
-        <p className="text-muted-foreground">Here's your health overview</p>
+        <h1 className="text-3xl font-bold">{t('dashboard.patientWelcomeBack', { name: user?.name || '' })}</h1>
+        <p className="text-muted-foreground">{t('dashboard.yourOverview')}</p>
       </div>
 
       {/* Top Row: Health Records + Active Consents */}
@@ -780,8 +782,8 @@ const PatientDashboard = () => {
       {/* Recent Activity */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Your latest health management activities</CardDescription>
+          <CardTitle>{t('dashboard.recentActivity')}</CardTitle>
+          <CardDescription>{t('dashboard.latestUpdatesPatient')}</CardDescription>
         </CardHeader>
         <CardContent>
           {recentActivity.length > 0 ? (
@@ -806,7 +808,7 @@ const PatientDashboard = () => {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No recent activity</p>
+              <p>{t('dashboard.noRecentActivity')}</p>
             </div>
           )}
         </CardContent>

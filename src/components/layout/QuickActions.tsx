@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   Upload, 
   UserCheck, 
@@ -32,12 +33,13 @@ interface QuickAction {
 const QuickActions = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [isMedicalReportModalOpen, setIsMedicalReportModalOpen] = useState(false);
 
   const doctorActions: QuickAction[] = [
     {
       id: 'request-consent',
-      title: 'Request Consent',
+      title: t('quickActions.requestConsent'),
       icon: UserCheck,
       href: '/doctor/consents',
       color: 'text-green-600',
@@ -46,7 +48,7 @@ const QuickActions = () => {
     },
     {
       id: 'schedule',
-      title: 'Schedule',
+      title: t('quickActions.schedule'),
       icon: Calendar,
       onClick: () => {
         // Open schedule modal directly if available
@@ -69,7 +71,7 @@ const QuickActions = () => {
     },
     {
       id: 'upload-prescription',
-      title: 'Upload Prescription',
+      title: t('quickActions.uploadPrescription'),
       icon: Pill,
       href: '/doctor/prescriptions',
       color: 'text-orange-600',
@@ -78,7 +80,7 @@ const QuickActions = () => {
     },
     {
       id: 'patients',
-      title: 'View Patients',
+      title: t('quickActions.viewPatients'),
       icon: Users,
       href: '/doctor/patients',
       color: 'text-cyan-600',
@@ -90,7 +92,7 @@ const QuickActions = () => {
   const patientActions: QuickAction[] = [
     {
       id: 'upload-record',
-      title: 'Upload Record',
+      title: t('quickActions.uploadRecord'),
       icon: Upload,
       href: '/records',
       color: 'text-blue-600',
@@ -99,7 +101,7 @@ const QuickActions = () => {
     },
     {
       id: 'analyze-medical-report',
-      title: 'Analyze Report',
+      title: t('quickActions.analyzeReport'),
       icon: Brain,
       onClick: () => setIsMedicalReportModalOpen(true),
       color: 'text-indigo-600',
@@ -108,7 +110,7 @@ const QuickActions = () => {
     },
     {
       id: 'consent-management',
-      title: 'Consent Management',
+      title: t('quickActions.consentManagement'),
       icon: Shield,
       href: '/consents',
       color: 'text-green-600',
@@ -117,7 +119,7 @@ const QuickActions = () => {
     },
     {
       id: 'schedule',
-      title: 'Schedule Appointment',
+      title: t('quickActions.scheduleAppointment'),
       icon: Calendar,
       onClick: () => {
         // Try to open the scheduling modal if present
@@ -135,7 +137,7 @@ const QuickActions = () => {
     },
     {
       id: 'prescriptions',
-      title: 'My Prescriptions',
+      title: t('quickActions.myPrescriptions'),
       icon: Pill,
       href: '/prescriptions',
       color: 'text-orange-600',
@@ -144,7 +146,7 @@ const QuickActions = () => {
     },
     {
       id: 'consultations',
-      title: 'My Consultations',
+      title: t('quickActions.myConsultations'),
       icon: Stethoscope,
       href: '/consultations',
       color: 'text-cyan-600',
@@ -167,7 +169,7 @@ const QuickActions = () => {
     <>
       <div className="w-full bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 py-2">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-sm font-semibold tracking-wide text-gray-500 dark:text-gray-400 mb-2 text-left">Quick Actions</h2>
+          <h2 className="text-sm font-semibold tracking-wide text-gray-500 dark:text-gray-400 mb-2 text-left">{t('dashboard.quickActions')}</h2>
           <div className="flex md:flex-wrap flex-nowrap gap-4 overflow-x-auto scroll-smooth scrollbar-hide mb-4">
             {actions.map((action) => (
               <button

@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Shield } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface PrivacySettingsProps {
   privacy: {
@@ -15,11 +16,12 @@ interface PrivacySettingsProps {
 }
 
 export const PrivacySettings = ({ privacy, onPrivacyChange }: PrivacySettingsProps) => {
+  const { t } = useLanguage();
   const handleChange = (key: string, value: boolean) => {
     onPrivacyChange(key, value);
     toast({
-      title: "Privacy Settings Updated",
-      description: "Your privacy preferences have been saved.",
+      title: t('settings.privacy.updated'),
+      description: t('settings.privacy.saved'),
     });
   };
 
@@ -28,18 +30,18 @@ export const PrivacySettings = ({ privacy, onPrivacyChange }: PrivacySettingsPro
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Shield className="h-5 w-5" />
-          Privacy & Security
+          {t('settings.privacy.privacySecurity')}
         </CardTitle>
         <CardDescription>
-          Control how your data is used and shared
+          {t('settings.privacy.controlData')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Share Analytics</Label>
-              <p className="text-sm text-muted-foreground">Help improve our platform with anonymous usage data</p>
+              <Label>{t('settings.privacy.shareAnalytics')}</Label>
+              <p className="text-sm text-muted-foreground">{t('settings.privacy.shareAnalyticsDescription')}</p>
             </div>
             <Switch
               checked={privacy.shareAnalytics}
@@ -49,8 +51,8 @@ export const PrivacySettings = ({ privacy, onPrivacyChange }: PrivacySettingsPro
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Allow Research Participation</Label>
-              <p className="text-sm text-muted-foreground">Participate in approved medical research studies</p>
+              <Label>{t('settings.privacy.allowResearch')}</Label>
+              <p className="text-sm text-muted-foreground">{t('settings.privacy.allowResearchDescription')}</p>
             </div>
             <Switch
               checked={privacy.allowResearch}
@@ -60,8 +62,8 @@ export const PrivacySettings = ({ privacy, onPrivacyChange }: PrivacySettingsPro
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>Public Profile</Label>
-              <p className="text-sm text-muted-foreground">Make basic profile visible to healthcare providers</p>
+              <Label>{t('settings.privacy.publicProfile')}</Label>
+              <p className="text-sm text-muted-foreground">{t('settings.privacy.publicProfileDescription')}</p>
             </div>
             <Switch
               checked={privacy.publicProfile}

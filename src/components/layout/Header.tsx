@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Heart, LogOut, User, Settings, Menu } from 'lucide-react';
 import { HeartLogo } from '@/components/HeartLogo';
 import {
@@ -18,6 +19,7 @@ import { NotificationDropdown } from '@/components/layout/NotificationDropdown';
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -54,8 +56,8 @@ export const Header: React.FC = () => {
           <div className="flex items-center space-x-3">
             <HeartLogo className="h-8 w-8" />
             <div className="flex flex-col justify-center leading-none">
-            <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent whitespace-nowrap truncate max-w-[200px] sm:max-w-none">Jeeva.AI</h1>
-            <p className="hidden md:block text-[11px] text-muted-foreground leading-tight whitespace-nowrap">Health Management Platform</p>
+            <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent whitespace-nowrap truncate max-w-[200px] sm:max-w-none">{t('common.appName')}</h1>
+            <p className="hidden md:block text-[11px] text-muted-foreground leading-tight whitespace-nowrap">{t('common.healthManagementPlatform')}</p>
             </div>
           </div>
         </div>
@@ -89,16 +91,16 @@ export const Header: React.FC = () => {
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate(user?.role === 'doctor' ? '/doctor/profile' : '/profile')}>
                 <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
+                <span>{t('navigation.profile')}</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate(user?.role === 'doctor' ? '/doctor/settings' : '/settings')}>
                 <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
+                <span>{t('navigation.settings')}</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+                <span>{t('common.signOut')}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
