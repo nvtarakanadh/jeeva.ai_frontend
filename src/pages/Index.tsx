@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Heart, Shield, Brain, Users, Activity, Globe, Languages } from 'lucide-react';
+import { Heart, Shield, Brain, Users, Activity, Globe } from 'lucide-react';
 import { HeartLogo } from '@/components/HeartLogo';
 
 const Index = () => {
@@ -54,7 +54,16 @@ const Index = () => {
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-50">
         <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-full shadow-lg border border-border p-1.5 sm:p-2 hover:shadow-xl transition-shadow">
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <Languages className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
+            <div className="relative h-4 w-5 sm:h-5 sm:w-6 text-primary flex-shrink-0 flex items-center justify-center">
+              <div className="relative w-full h-full">
+                {/* Top - Hindi */}
+                <span className="absolute top-[-1px] left-[calc(50%-2px)] -translate-x-1/2 text-[9px] sm:text-[10px] leading-none font-semibold">हि</span>
+                {/* Bottom Left - Telugu */}
+                <span className="absolute bottom-0 left-0 text-[9px] sm:text-[10px] leading-none font-semibold">తె</span>
+                {/* Bottom Right - English */}
+                <span className="absolute bottom-0 right-0 text-[9px] sm:text-[10px] leading-none font-semibold">En</span>
+              </div>
+            </div>
             <Select 
               key={language}
               value={language || 'en'} 
