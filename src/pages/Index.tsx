@@ -1,13 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
-import { Heart, Shield, Brain, Users, Activity, Globe } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Heart, Shield, Brain, Users, Activity, Globe, Languages } from 'lucide-react';
 import { HeartLogo } from '@/components/HeartLogo';
 
 const Index = () => {
   const { isAuthenticated, user, isLoading, logout } = useAuth();
   const navigate = useNavigate();
+  const { language, setLanguage } = useLanguage();
 
   // Remove logging to prevent unnecessary re-renders
   // const prevState = React.useRef({ isAuthenticated, isLoading, userRole: user?.role });
@@ -37,26 +40,63 @@ const Index = () => {
   }, [isAuthenticated, user, navigate, isLoading]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-light via-background to-secondary-light">
+    <div className="min-h-screen bg-gradient-to-br from-primary-light via-background to-secondary-light relative">
+      {/* Language Selector - Top Right */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-50">
+        <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-full shadow-lg border border-border p-1.5 sm:p-2 hover:shadow-xl transition-shadow">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Languages className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
+            <Select 
+              value={language} 
+              onValueChange={(value) => setLanguage(value as any)}
+            >
+              <SelectTrigger className="w-[120px] sm:w-[140px] border-0 bg-transparent focus:ring-0 h-auto py-1 text-sm sm:text-base font-medium">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="hi">हिन्दी</SelectItem>
+                <SelectItem value="te">తెలుగు</SelectItem>
+                <SelectItem value="ta">தமிழ்</SelectItem>
+                <SelectItem value="ml">മലയാളം</SelectItem>
+                <SelectItem value="kn">ಕನ್ನಡ</SelectItem>
+                <SelectItem value="mr">मराठी</SelectItem>
+                <SelectItem value="bn">বাংলা</SelectItem>
+                <SelectItem value="gu">ગુજરાતી</SelectItem>
+                <SelectItem value="pa">ਪੰਜਾਬੀ</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
       {/* Hero Section */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center max-w-4xl mx-auto">
+      <div className="container mx-auto px-4 py-16 overflow-visible">
+        <div className="text-center max-w-4xl mx-auto overflow-visible">
           <div className="flex justify-center mb-8">
             <div className="p-6 bg-white rounded-full shadow-strong">
               <HeartLogo className="h-24 w-24" />
             </div>
           </div>
           
-          <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent">
-            Jeeva.AI
-          </h1>
+          <div className="px-8 py-2 mb-2 overflow-visible">
+            <h1 className="text-5xl font-bold inline-block">
+              <span className="bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent pl-1 pr-1">
+                Jeeva.AI
+              </span>
+            </h1>
+          </div>
+          
+          <p className="text-xl text-muted-foreground mb-4">
+            your health at your fingertips.
+          </p>
           
           {isAuthenticated && user ? (
-            <p className="text-xl text-muted-foreground mb-4">
+            <p className="text-lg text-muted-foreground mb-4">
               Welcome back, {user.name || 'User'}! Ready to manage your health?
             </p>
           ) : (
-            <p className="text-xl text-muted-foreground mb-4">
+            <p className="text-lg text-muted-foreground mb-4">
               Patient-Centric Health Management Platform
             </p>
           )}
