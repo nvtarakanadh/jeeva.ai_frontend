@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import i18n from '@/config/i18n';
+import i18n from '@/i18n';
 
-type Language = 'en' | 'hi' | 'te' | 'ta';
+type Language = 'en' | 'hi' | 'te' | 'ta' | 'ml' | 'kn' | 'mr' | 'bn' | 'gu' | 'pa';
 
 interface LanguageContextType {
   language: Language;
@@ -25,8 +25,9 @@ interface LanguageProviderProps {
 
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
   const getStoredLanguage = (): Language => {
-    const stored = localStorage.getItem('preferred-language');
-    if (stored && ['en', 'hi', 'te', 'ta'].includes(stored)) {
+    const stored = localStorage.getItem('lang') || localStorage.getItem('preferred-language');
+    const supportedLangs: Language[] = ['en', 'hi', 'te', 'ta', 'ml', 'kn', 'mr', 'bn', 'gu', 'pa'];
+    if (stored && supportedLangs.includes(stored as Language)) {
       return stored as Language;
     }
     return 'en';
@@ -36,7 +37,12 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
+    localStorage.setItem('lang', lang);
     localStorage.setItem('preferred-language', lang);
+    // Update document attributes for RTL support if needed
+    const isRTL = ['ur'].includes(lang);
+    document.documentElement.lang = lang;
+    document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
     i18n.changeLanguage(lang);
   };
 
@@ -45,7 +51,9 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   }, []);
 
   const t = (key: string, options?: Record<string, string>): string => {
-    return i18n.t(key, options) || key;
+    // Keys are already in the format 'common.xxx' or 'navigation.xxx', etc.
+    // i18next will handle the namespace automatically
+    return i18n.t(key, { ns: 'common', ...options }) || key;
   };
 
   return (

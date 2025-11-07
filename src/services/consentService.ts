@@ -32,19 +32,142 @@ const getDoctorName = async (doctorProfileId: string): Promise<string> => {
   return doctorProfile?.full_name || 'Unknown Doctor';
 };
 
+// Get consent forms from health_records table
+export const getConsentFormsFromHealthRecords = async (doctorProfileId?: string, patientUserId?: string): Promise<ConsentRequest[]> => {
+  try {
+    let query = supabase
+      .from('health_records')
+      .select('*')
+      .contains('tags', ['consent_form'])
+      .eq('record_type', 'consultation')
+      .order('created_at', { ascending: false });
+
+    // Filter by patient user_id if provided
+    if (patientUserId) {
+      query = query.eq('user_id', patientUserId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching health records:', error);
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    // Get doctor profile if doctorProfileId is provided (for filtering)
+    let doctorProfile = null;
+    if (doctorProfileId) {
+      const { data: doctor } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('id', doctorProfileId)
+        .single();
+      doctorProfile = doctor;
+    }
+
+    // Get patient user IDs
+    const patientUserIds = new Set(data.map(r => r.user_id));
+    
+    // Get patient profiles
+    const { data: patientProfiles } = await supabase
+      .from('profiles')
+      .select('id, user_id, full_name')
+      .in('user_id', Array.from(patientUserIds));
+
+    const patientMap = new Map(patientProfiles?.map(p => [p.user_id, p]) || []);
+
+    // Process records and filter by doctor if needed
+    const consentForms = data
+      .map(record => {
+        const patientProfile = patientMap.get(record.user_id);
+        
+        // Parse metadata from description
+        let metadata: any = {};
+        try {
+          const description = record.description || '';
+          const metadataMatch = description.match(/\[METADATA\]\s*(\{[\s\S]*\})/);
+          if (metadataMatch) {
+            metadata = JSON.parse(metadataMatch[1]);
+          }
+        } catch (e) {
+          console.error('Error parsing metadata:', e);
+        }
+
+        // If filtering by doctor, check if this record was created by that doctor
+        // We match by provider_name or by checking if doctorProfileId matches
+        if (doctorProfileId && doctorProfile) {
+          // Check if provider_name matches doctor's name
+          const providerMatches = record.provider_name === doctorProfile.full_name;
+          if (!providerMatches) {
+            return null; // Skip this record if it doesn't match the doctor
+          }
+        }
+
+        return {
+          id: record.id,
+          patientId: metadata.patient_id || patientProfile?.id || record.user_id,
+          patientName: metadata.patient_name || patientProfile?.full_name || 'Unknown Patient',
+          requesterId: doctorProfileId || '',
+          requesterName: record.provider_name || doctorProfile?.full_name || 'Unknown Doctor',
+          purpose: record.title,
+          requestedDataTypes: ['health_records'] as RecordType[],
+          duration: metadata.duration_days || 30,
+          status: 'approved' as ConsentStatus, // Consent forms are pre-approved
+          requestedAt: new Date(record.created_at),
+          expiresAt: metadata.expires_at ? new Date(metadata.expires_at) : undefined,
+          message: undefined
+        };
+      })
+      .filter((form): form is ConsentRequest => form !== null);
+
+    return consentForms;
+  } catch (error) {
+    console.error('Error fetching consent forms from health records:', error);
+    throw error;
+  }
+};
+
 // Get consent requests for a doctor
 export const getDoctorConsentRequests = async (doctorProfileId: string): Promise<ConsentRequest[]> => {
   try {
-    const { data, error } = await supabase
-      .from('consent_requests')
-      .select('*')
-      .eq('doctor_id', doctorProfileId)
-      .order('requested_at', { ascending: false });
+    // Get both consent_requests and consent forms from health_records
+    const [consentRequests, consentForms] = await Promise.all([
+      // Get from consent_requests table
+      (async () => {
+        const { data, error } = await supabase
+          .from('consent_requests')
+          .select('*')
+          .eq('doctor_id', doctorProfileId)
+          .order('requested_at', { ascending: false });
 
-    if (error) throw error;
+        if (error) throw error;
+        return data || [];
+      })(),
+      // Get consent forms from health_records
+      getConsentFormsFromHealthRecords(doctorProfileId)
+    ]);
+
+    const allData = [...consentRequests, ...consentForms];
+
+    if (allData.length === 0) {
+      return [];
+    }
+
+    // Process consent_requests (from consent_requests table)
+    const consentRequestsData = consentRequests.map((request: any) => {
+      // This will be processed below
+      return request;
+    });
+
+    // Combine and process all requests
+    const allRequests = [...consentRequestsData, ...consentForms];
 
     // Get doctor names for all requests
-    const doctorIds = [...new Set(data.map(r => r.doctor_id))];
+    const doctorIds = [...new Set(allRequests.map(r => r.requesterId).filter(Boolean))];
     const { data: doctorProfiles } = await supabase
       .from('profiles')
       .select('id, full_name')
@@ -52,9 +175,20 @@ export const getDoctorConsentRequests = async (doctorProfileId: string): Promise
 
     const doctorMap = new Map(doctorProfiles?.map(p => [p.id, p.full_name]) || []);
 
-    return data.map(request => ({
+    // Get patient names for all requests
+    const patientIds = [...new Set(allRequests.map(r => r.patientId).filter(Boolean))];
+    const { data: patientProfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', patientIds);
+
+    const patientMap = new Map(patientProfiles?.map(p => [p.id, p.full_name]) || []);
+
+    // Process consent_requests from consent_requests table
+    const processedConsentRequests = consentRequests.map((request: any) => ({
       id: request.id,
       patientId: request.patient_id,
+      patientName: patientMap.get(request.patient_id) || 'Unknown Patient',
       requesterId: request.doctor_id,
       requesterName: doctorMap.get(request.doctor_id) || 'Unknown Doctor',
       purpose: request.purpose,
@@ -66,6 +200,11 @@ export const getDoctorConsentRequests = async (doctorProfileId: string): Promise
       expiresAt: request.expires_at ? new Date(request.expires_at) : undefined,
       message: request.message
     }));
+
+    // Combine both types
+    return [...processedConsentRequests, ...consentForms].sort((a, b) => 
+      b.requestedAt.getTime() - a.requestedAt.getTime()
+    );
   } catch (error) {
     console.error('Error fetching doctor consent requests:', error);
     throw error;
@@ -75,16 +214,36 @@ export const getDoctorConsentRequests = async (doctorProfileId: string): Promise
 // Get consent requests for a patient
 export const getPatientConsentRequests = async (patientId: string): Promise<ConsentRequest[]> => {
   try {
-    const { data, error } = await supabase
-      .from('consent_requests')
-      .select('*')
-      .eq('patient_id', patientId)
-      .order('requested_at', { ascending: false });
+    // Get patient's user_id
+    const { data: patientProfile } = await supabase
+      .from('profiles')
+      .select('id, user_id, full_name')
+      .eq('id', patientId)
+      .single();
 
-    if (error) throw error;
+    if (!patientProfile) {
+      throw new Error('Patient profile not found');
+    }
 
-    // Get doctor names for all requests
-    const doctorIds = [...new Set(data.map(r => r.doctor_id))];
+    // Get both consent_requests and consent forms from health_records
+    const [consentRequests, consentForms] = await Promise.all([
+      // Get from consent_requests table
+      (async () => {
+        const { data, error } = await supabase
+          .from('consent_requests')
+          .select('*')
+          .eq('patient_id', patientId)
+          .order('requested_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+      })(),
+      // Get consent forms from health_records
+      getConsentFormsFromHealthRecords(undefined, patientProfile.user_id)
+    ]);
+
+    // Process consent_requests from consent_requests table
+    const doctorIds = [...new Set(consentRequests.map((r: any) => r.doctor_id))];
     const { data: doctorProfiles } = await supabase
       .from('profiles')
       .select('id, full_name')
@@ -92,9 +251,10 @@ export const getPatientConsentRequests = async (patientId: string): Promise<Cons
 
     const doctorMap = new Map(doctorProfiles?.map(p => [p.id, p.full_name]) || []);
 
-    return data.map(request => ({
+    const processedConsentRequests = consentRequests.map((request: any) => ({
       id: request.id,
       patientId: request.patient_id,
+      patientName: patientProfile.full_name || 'Unknown Patient',
       requesterId: request.doctor_id,
       requesterName: doctorMap.get(request.doctor_id) || 'Unknown Doctor',
       purpose: request.purpose,
@@ -106,6 +266,11 @@ export const getPatientConsentRequests = async (patientId: string): Promise<Cons
       expiresAt: request.expires_at ? new Date(request.expires_at) : undefined,
       message: request.message
     }));
+
+    // Combine both types
+    return [...processedConsentRequests, ...consentForms].sort((a, b) => 
+      b.requestedAt.getTime() - a.requestedAt.getTime()
+    );
   } catch (error) {
     console.error('Error fetching patient consent requests:', error);
     throw error;

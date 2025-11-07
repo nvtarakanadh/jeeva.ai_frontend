@@ -25,7 +25,7 @@ export const PreferenceSettings = ({ preferences, onPreferenceChange }: Preferen
       setTheme(value as any);
     }
     if (key === 'language') {
-      setLanguage(value as 'en' | 'hi' | 'te' | 'ta');
+      setLanguage(value as 'en' | 'hi' | 'te' | 'ta' | 'ml' | 'kn' | 'mr' | 'bn' | 'gu' | 'pa');
     }
     toast({
       title: t('settings.preferences.updated'),
@@ -91,6 +91,12 @@ export const PreferenceSettings = ({ preferences, onPreferenceChange }: Preferen
                 <SelectItem value="hi">हिन्दी</SelectItem>
                 <SelectItem value="te">తెలుగు</SelectItem>
                 <SelectItem value="ta">தமிழ்</SelectItem>
+                <SelectItem value="ml">മലയാളം</SelectItem>
+                <SelectItem value="kn">ಕನ್ನಡ</SelectItem>
+                <SelectItem value="mr">मराठी</SelectItem>
+                <SelectItem value="bn">বাংলা</SelectItem>
+                <SelectItem value="gu">ગુજરાતી</SelectItem>
+                <SelectItem value="pa">ਪੰਜਾਬੀ</SelectItem>
               </SelectContent>
             </Select>
           </div>

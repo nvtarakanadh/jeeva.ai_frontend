@@ -13,10 +13,12 @@ import { getDoctorConsentRequests, extendConsentRequest } from '@/services/conse
 import CreateConsentRequest from '@/components/consent/CreateConsentRequest';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 
 const DoctorConsents = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [consentRequests, setConsentRequests] = useState<ConsentRequest[]>([]);
   const [filterStatus, setFilterStatus] = useState<ConsentStatus | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,8 +79,11 @@ const DoctorConsents = () => {
 
   const filteredRequests = consentRequests.filter(request => {
     const matchesStatus = filterStatus === 'all' || request.status === filterStatus;
-    const matchesSearch = request.requesterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         request.purpose.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = searchTerm === '' || 
+                         request.requesterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         request.purpose.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         request.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (request.patientName && request.patientName.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesStatus && matchesSearch;
   });
 
@@ -152,9 +157,9 @@ const DoctorConsents = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold">Consent Management</h1>
+          <h1 className="text-3xl font-bold">{t('navigation.consentRequests')}</h1>
           <p className="text-muted-foreground">
-            Manage patient consent requests and data access permissions
+            {t('consentForm.createDeIdentifiedConsent')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -164,7 +169,7 @@ const DoctorConsents = () => {
             disabled={loading}
           >
             {loading ? <ButtonLoadingSpinner /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            Refresh
+            {t('common.update')}
           </Button>
           {doctorProfileId && (
             <CreateConsentRequest
@@ -230,7 +235,7 @@ const DoctorConsents = () => {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by patient name or purpose..."
+                placeholder="Search by patient name, patient ID, or purpose..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -287,7 +292,17 @@ const DoctorConsents = () => {
                         <User className="h-5 w-5" />
                         {request.requesterName}
                       </CardTitle>
-                      <CardDescription>{request.purpose}</CardDescription>
+                      <CardDescription>
+                        {request.purpose}
+                      </CardDescription>
+                      <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                        <div>
+                          <span className="font-semibold">Patient:</span> {(request as any).patientName || 'Unknown Patient'}
+                        </div>
+                        <div>
+                          <span className="font-semibold">Patient ID:</span> {request.patientId}
+                        </div>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {isExpiringSoon && request.status === 'approved' && (

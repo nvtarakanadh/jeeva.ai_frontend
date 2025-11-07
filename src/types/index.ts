@@ -72,6 +72,7 @@ export type ConsentStatus = 'pending' | 'approved' | 'denied' | 'revoked' | 'exp
 export interface ConsentRequest {
   id: string;
   patientId: string;
+  patientName?: string; // Patient name for display
   requesterId: string; // doctor or system ID
   requesterName: string;
   purpose: string;

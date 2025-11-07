@@ -11,7 +11,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import "@/config/i18n"; // Initialize i18n
+import "@/i18n"; // Initialize i18n
 import { PageSkeleton } from "@/components/ui/skeleton-loading";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
