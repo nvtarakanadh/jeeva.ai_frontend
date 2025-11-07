@@ -45,22 +45,8 @@ const Index = () => {
   //   }
   // }, [isAuthenticated, isLoading, user?.role]);
 
-  // Auto-redirect authenticated users to their appropriate dashboard
-  useEffect(() => {
-    
-    // Only redirect if not loading and user is authenticated
-    if (!isLoading && isAuthenticated && user) {
-      const redirectPath = user.role === 'doctor' ? '/doctor/dashboard' : '/dashboard';
-      
-      // Debounce navigation to prevent rapid redirects
-      const redirectTimeout = setTimeout(() => {
-        navigate(redirectPath);
-      }, 100);
-      
-      return () => clearTimeout(redirectTimeout);
-    } else {
-    }
-  }, [isAuthenticated, user, navigate, isLoading]);
+  // Note: Removed auto-redirect to allow authenticated users to see landing page
+  // Users can manually navigate to dashboard using the "Go to Dashboard" button
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-light via-background to-secondary-light relative">
@@ -115,7 +101,11 @@ const Index = () => {
             {t('landing.tagline')}
           </p>
           
-          {isAuthenticated && user ? (
+          {isLoading ? (
+            <p className="text-lg text-muted-foreground mb-4">
+              {t('landing.subtitle')}
+            </p>
+          ) : isAuthenticated && user ? (
             <p className="text-lg text-muted-foreground mb-4">
               {t('landing.welcomeBack', { name: user.name || 'User' })}
             </p>
@@ -130,7 +120,19 @@ const Index = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            {isAuthenticated && user ? (
+            {isLoading ? (
+              // Show loading state while checking authentication
+              <>
+                <Button 
+                  variant="hero" 
+                  size="lg" 
+                  disabled
+                  className="text-lg px-8 py-3 opacity-50"
+                >
+                  {t('common.loading')}
+                </Button>
+              </>
+            ) : isAuthenticated && user ? (
               <>
                 <Button 
                   variant="hero" 

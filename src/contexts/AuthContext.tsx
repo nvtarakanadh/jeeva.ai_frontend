@@ -111,34 +111,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log('🔐 Processing session for user:', session.user.email);
       setSession(session);
 
-      // Try to get profile data with timeout
-      try {
-        const profilePromise = supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single();
-        
-        const profileTimeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-        );
-        
-        const { data: profile, error: profileError } = await Promise.race([profilePromise, profileTimeoutPromise]) as any;
-        
-        if (profileError) {
-          console.log('🔐 Profile fetch failed, using session metadata:', profileError);
-          const userData = createUserFromSession(session);
-          setUser(userData);
-        } else {
-          const userData = createUserFromSession(session, profile);
-          setUser(userData);
-          console.log('🔐 User data set from profile');
-        }
-      } catch (profileError) {
-        console.log('🔐 Profile fetch failed, using session metadata');
-        const userData = createUserFromSession(session);
-        setUser(userData);
-      }
+      // Set user immediately from session metadata (fast)
+      const userData = createUserFromSession(session);
+      setUser(userData);
+      setIsLoading(false); // Set loading to false immediately
+      
+      // Fetch profile data in background (non-blocking)
+      supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .single()
+        .then(({ data: profile, error: profileError }) => {
+          if (!profileError && profile) {
+            // Update user with full profile data
+            const fullUserData = createUserFromSession(session, profile);
+            setUser(fullUserData);
+            console.log('🔐 User data updated from profile');
+          }
+        })
+        .catch((error) => {
+          console.log('🔐 Profile fetch failed (non-blocking):', error);
+        });
     } catch (error) {
       console.error('🔐 Error processing session:', error);
       // Clear corrupted data and reset
@@ -147,7 +141,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setSession(null);
     } finally {
       processingRef.current = false;
-      setIsLoading(false);
+      // Loading is now set immediately in processSession, so we don't need to set it here
     }
   };
 
@@ -170,10 +164,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Clear any corrupted auth data first
         clearCorruptedAuth();
         
-        // Add timeout to prevent hanging
+        // Add timeout to prevent hanging (reduced from 10s to 3s)
         const authPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Auth initialization timeout')), 10000)
+          setTimeout(() => reject(new Error('Auth initialization timeout')), 3000)
         );
         
         const { data: { session }, error } = await Promise.race([authPromise, timeoutPromise]) as any;
@@ -209,13 +203,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     };
 
-    // Set a safety timeout to ensure loading is always set to false
+    // Set a safety timeout to ensure loading is always set to false (reduced from 15s to 5s)
     timeoutId = setTimeout(() => {
       if (mounted && isLoading) {
         console.log('🔐 Safety timeout: forcing loading to false');
         setIsLoading(false);
       }
-    }, 15000); // 15 seconds timeout
+    }, 5000); // 5 seconds timeout
 
     initializeAuth();
 
