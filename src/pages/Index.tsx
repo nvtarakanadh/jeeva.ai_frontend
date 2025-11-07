@@ -10,7 +10,30 @@ import { HeartLogo } from '@/components/HeartLogo';
 const Index = () => {
   const { isAuthenticated, user, isLoading, logout } = useAuth();
   const navigate = useNavigate();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
+
+  // Language display names
+  const languageNames: Record<string, string> = {
+    en: 'English',
+    hi: 'हिन्दी',
+    te: 'తెలుగు',
+    ta: 'தமிழ்',
+    ml: 'മലയാളം',
+    kn: 'ಕನ್ನಡ',
+    mr: 'मराठी',
+    bn: 'বাংলা',
+    gu: 'ગુજરાતી',
+    pa: 'ਪੰਜਾਬੀ',
+  };
+
+  const handleLanguageChange = (value: string) => {
+    setLanguage(value as any);
+  };
+
+  // Update document title when language changes
+  useEffect(() => {
+    document.title = `${t('common.appName')} - ${t('landing.subtitle')}`;
+  }, [language, t]);
 
   // Remove logging to prevent unnecessary re-renders
   // const prevState = React.useRef({ isAuthenticated, isLoading, userRole: user?.role });
@@ -47,11 +70,12 @@ const Index = () => {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Languages className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
             <Select 
-              value={language} 
-              onValueChange={(value) => setLanguage(value as any)}
+              key={language}
+              value={language || 'en'} 
+              onValueChange={handleLanguageChange}
             >
               <SelectTrigger className="w-[120px] sm:w-[140px] border-0 bg-transparent focus:ring-0 h-auto py-1 text-sm sm:text-base font-medium">
-                <SelectValue />
+                <SelectValue placeholder="Language" />
               </SelectTrigger>
               <SelectContent className="max-h-[300px]">
                 <SelectItem value="en">English</SelectItem>
@@ -82,28 +106,27 @@ const Index = () => {
           <div className="px-8 py-2 mb-2 overflow-visible">
             <h1 className="text-5xl font-bold inline-block">
               <span className="bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent pl-1 pr-1">
-                Jeeva.AI
+                {t('common.appName')}
               </span>
             </h1>
           </div>
           
           <p className="text-xl text-muted-foreground mb-4">
-            your health at your fingertips.
+            {t('landing.tagline')}
           </p>
           
           {isAuthenticated && user ? (
             <p className="text-lg text-muted-foreground mb-4">
-              Welcome back, {user.name || 'User'}! Ready to manage your health?
+              {t('landing.welcomeBack', { name: user.name || 'User' })}
             </p>
           ) : (
             <p className="text-lg text-muted-foreground mb-4">
-              Patient-Centric Health Management Platform
+              {t('landing.subtitle')}
             </p>
           )}
           
           <p className="text-lg text-foreground/80 mb-8 max-w-2xl mx-auto">
-            Empower patients with AI-driven health insights and consent-based data sharing. 
-            Secure, compliant, and designed for the future of healthcare.
+            {t('landing.description')}
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
@@ -115,7 +138,7 @@ const Index = () => {
                   onClick={() => navigate(user.role === 'doctor' ? '/doctor/dashboard' : '/dashboard')}
                   className="text-lg px-8 py-3"
                 >
-                  Go to Dashboard
+                  {t('landing.goToDashboard')}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -123,7 +146,7 @@ const Index = () => {
                   onClick={() => navigate('/auth')}
                   className="text-lg px-8 py-3"
                 >
-                  Switch Account
+                  {t('landing.switchAccount')}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -131,7 +154,7 @@ const Index = () => {
                   onClick={() => logout()}
                   className="text-lg px-8 py-3 text-red-600 hover:text-red-700"
                 >
-                  Logout
+                  {t('landing.logout')}
                 </Button>
               </>
             ) : (
@@ -142,7 +165,7 @@ const Index = () => {
                   onClick={() => navigate('/auth')}
                   className="text-lg px-8 py-3"
                 >
-                  Get Started
+                  {t('landing.getStarted')}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -155,7 +178,7 @@ const Index = () => {
                   }}
                   className="text-lg px-8 py-3"
                 >
-                  Learn More
+                  {t('landing.learnMore')}
                 </Button>
               </>
             )}
@@ -168,10 +191,9 @@ const Index = () => {
             <div className="p-3 bg-primary-light rounded-lg w-fit mb-4">
               <Shield className="h-6 w-6 text-primary" />
             </div>
-            <h3 className="text-xl font-semibold mb-3">Consent-Driven Privacy</h3>
+            <h3 className="text-xl font-semibold mb-3">{t('landing.features.consentPrivacy.title')}</h3>
             <p className="text-muted-foreground">
-              You control who accesses your health data. Explicit consent for every interaction, 
-              aligned with ABDM guidelines.
+              {t('landing.features.consentPrivacy.description')}
             </p>
           </div>
 
@@ -179,10 +201,9 @@ const Index = () => {
             <div className="p-3 bg-accent-light rounded-lg w-fit mb-4">
               <Brain className="h-6 w-6 text-accent" />
             </div>
-            <h3 className="text-xl font-semibold mb-3">AI Health Insights</h3>
+            <h3 className="text-xl font-semibold mb-3">{t('landing.features.aiInsights.title')}</h3>
             <p className="text-muted-foreground">
-              Advanced AI analyzes your medical records to provide personalized insights, 
-              risk assessments, and recommendations.
+              {t('landing.features.aiInsights.description')}
             </p>
           </div>
 
@@ -190,10 +211,9 @@ const Index = () => {
             <div className="p-3 bg-secondary-light rounded-lg w-fit mb-4">
               <Users className="h-6 w-6 text-secondary" />
             </div>
-            <h3 className="text-xl font-semibold mb-3">Doctor Collaboration</h3>
+            <h3 className="text-xl font-semibold mb-3">{t('landing.features.doctorCollaboration.title')}</h3>
             <p className="text-muted-foreground">
-              Seamless collaboration between patients and healthcare providers with 
-              secure data sharing and digital prescriptions.
+              {t('landing.features.doctorCollaboration.description')}
             </p>
           </div>
 
@@ -201,10 +221,9 @@ const Index = () => {
             <div className="p-3 bg-warning-light rounded-lg w-fit mb-4">
               <Activity className="h-6 w-6 text-warning" />
             </div>
-            <h3 className="text-xl font-semibold mb-3">Health Timeline</h3>
+            <h3 className="text-xl font-semibold mb-3">{t('landing.features.healthTimeline.title')}</h3>
             <p className="text-muted-foreground">
-              Comprehensive timeline view of your health journey with easy upload, 
-              organization, and retrieval of medical records.
+              {t('landing.features.healthTimeline.description')}
             </p>
           </div>
 
@@ -212,10 +231,9 @@ const Index = () => {
             <div className="p-3 bg-primary-light rounded-lg w-fit mb-4">
               <Globe className="h-6 w-6 text-primary" />
             </div>
-            <h3 className="text-xl font-semibold mb-3">Interoperability</h3>
+            <h3 className="text-xl font-semibold mb-3">{t('landing.features.interoperability.title')}</h3>
             <p className="text-muted-foreground">
-              FHIR-compliant data exchange between healthcare systems, 
-              enabling seamless continuity of care.
+              {t('landing.features.interoperability.description')}
             </p>
           </div>
 
@@ -223,10 +241,9 @@ const Index = () => {
             <div className="p-3 bg-accent-light rounded-lg w-fit mb-4">
               <Heart className="h-6 w-6 text-accent" />
             </div>
-            <h3 className="text-xl font-semibold mb-3">Patient-Centric</h3>
+            <h3 className="text-xl font-semibold mb-3">{t('landing.features.patientCentric.title')}</h3>
             <p className="text-muted-foreground">
-              Built with patients at the center. Your data, your control, your health journey 
-              - managed the way you want it.
+              {t('landing.features.patientCentric.description')}
             </p>
           </div>
         </div>
@@ -235,7 +252,7 @@ const Index = () => {
         <div className="text-center mt-16">
           <div className="inline-flex items-center gap-3 bg-accent-light px-6 py-3 rounded-full">
             <Shield className="h-5 w-5 text-accent" />
-            <span className="text-sm font-medium">ABDM Compliant Platform</span>
+            <span className="text-sm font-medium">{t('landing.abdmCompliant')}</span>
           </div>
         </div>
       </div>

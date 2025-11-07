@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "Jeeva AI",
+    "appName": "Jeeva.AI",
     "healthManagementPlatform": "Health Management Platform",
     "save": "Save",
     "cancel": "Cancel",
@@ -291,5 +291,44 @@
     "failedToSaveForm": "Failed to save consent form",
     "validationError": "Validation Error",
     "fillRequiredFields": "Please fill in all required fields"
+  },
+  "landing": {
+    "tagline": "your health at your fingertips.",
+    "subtitle": "Patient-Centric Health Management Platform",
+    "description": "Empower patients with AI-driven health insights and consent-based data sharing. Secure, compliant, and designed for the future of healthcare.",
+    "welcomeBack": "Welcome back, {{name}}! Ready to manage your health?",
+    "welcomeBackUser": "Welcome back, User! Ready to manage your health?",
+    "getStarted": "Get Started",
+    "learnMore": "Learn More",
+    "goToDashboard": "Go to Dashboard",
+    "switchAccount": "Switch Account",
+    "logout": "Logout",
+    "features": {
+      "consentPrivacy": {
+        "title": "Consent-Driven Privacy",
+        "description": "You control who accesses your health data. Explicit consent for every interaction, aligned with ABDM guidelines."
+      },
+      "aiInsights": {
+        "title": "AI Health Insights",
+        "description": "Advanced AI analyzes your medical records to provide personalized insights, risk assessments, and recommendations."
+      },
+      "doctorCollaboration": {
+        "title": "Doctor Collaboration",
+        "description": "Seamless collaboration between patients and healthcare providers with secure data sharing and digital prescriptions."
+      },
+      "healthTimeline": {
+        "title": "Health Timeline",
+        "description": "Comprehensive timeline view of your health journey with easy upload, organization, and retrieval of medical records."
+      },
+      "interoperability": {
+        "title": "Interoperability",
+        "description": "FHIR-compliant data exchange between healthcare systems, enabling seamless continuity of care."
+      },
+      "patientCentric": {
+        "title": "Patient-Centric",
+        "description": "Built with patients at the center. Your data, your control, your health journey - managed the way you want it."
+      }
+    },
+    "abdmCompliant": "ABDM Compliant Platform"
   }
 }
