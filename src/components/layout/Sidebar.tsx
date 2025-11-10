@@ -26,7 +26,9 @@ import {
   Ticket,
   Plane,
   TestTube,
-  Wallet
+  Wallet,
+  Video,
+  Activity
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -71,6 +73,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
   const patientComingSoonNavItems: NavItem[] = [
     { label: t('navigation.vendors'), icon: Building2, href: '/vendors', roles: ['patient'] },
     { label: t('navigation.medicalDeviceCompanies'), icon: Microscope, href: '/medical-device-companies', roles: ['patient'] },
+    { label: t('navigation.teleHealth'), icon: Video, href: '/coming-soon/tele-health', roles: ['patient'] },
+    { label: t('navigation.remoteMonitoring'), icon: Activity, href: '/coming-soon/remote-monitoring', roles: ['patient'] },
     { label: t('navigation.insurancePartners'), icon: Heart, href: '/insurance-partners', roles: ['patient'] },
     { label: t('navigation.pharmacies'), icon: Store, href: '/pharmacies', roles: ['patient'] },
     { label: t('navigation.loans'), icon: IndianRupee, href: '/loans', roles: ['patient'] },
@@ -83,6 +87,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ forceExpanded = false }) => {
   const doctorComingSoonNavItems: NavItem[] = [
     { label: t('navigation.vendors'), icon: Building2, href: '/doctor/vendors', roles: ['doctor'] },
     { label: t('navigation.medicalDeviceCompanies'), icon: Microscope, href: '/doctor/medical-device-companies', roles: ['doctor'] },
+    { label: t('navigation.teleHealth'), icon: Video, href: '/doctor/coming-soon/tele-health', roles: ['doctor'] },
+    { label: t('navigation.remoteMonitoring'), icon: Activity, href: '/doctor/coming-soon/remote-monitoring', roles: ['doctor'] },
     { label: t('navigation.insurancePartners'), icon: Heart, href: '/doctor/insurance-partners', roles: ['doctor'] },
     { label: t('navigation.pharmacies'), icon: Store, href: '/doctor/pharmacies', roles: ['doctor'] },
     { label: t('navigation.loans'), icon: IndianRupee, href: '/doctor/loans', roles: ['doctor'] },

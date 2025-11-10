@@ -41,6 +41,8 @@ import CouponsSchemes from "./pages/patient/CouponsSchemes";
 import MedicalTourism from "./pages/patient/MedicalTourism";
 import ClinicalResearch from "./pages/patient/ClinicalResearch";
 import FinancePartners from "./pages/patient/FinancePartners";
+import TeleHealth from "./pages/patient/TeleHealth";
+import RemoteMonitoring from "./pages/patient/RemoteMonitoring";
 import Auth from "./pages/Auth";
 import MainLayout from "./layouts/MainLayout";
 
@@ -172,6 +174,16 @@ const App = () => {
                     <MainLayout><FinancePartners /></MainLayout>
                   </ProtectedRoute>
                 } />
+                <Route path="/coming-soon/tele-health" element={
+                  <ProtectedRoute allowedRoles={['patient']}>
+                    <MainLayout><TeleHealth /></MainLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/coming-soon/remote-monitoring" element={
+                  <ProtectedRoute allowedRoles={['patient']}>
+                    <MainLayout><RemoteMonitoring /></MainLayout>
+                  </ProtectedRoute>
+                } />
                 
                         {/* Doctor Routes */}
                         <Route path="/doctor/dashboard" element={
@@ -259,6 +271,16 @@ const App = () => {
                         <Route path="/doctor/finance-partners" element={
                           <ProtectedRoute allowedRoles={['doctor']}>
                             <MainLayout><FinancePartners /></MainLayout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/doctor/coming-soon/tele-health" element={
+                          <ProtectedRoute allowedRoles={['doctor']}>
+                            <MainLayout><TeleHealth /></MainLayout>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/doctor/coming-soon/remote-monitoring" element={
+                          <ProtectedRoute allowedRoles={['doctor']}>
+                            <MainLayout><RemoteMonitoring /></MainLayout>
                           </ProtectedRoute>
                         } />
                 
