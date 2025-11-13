@@ -71,7 +71,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onToggleMode }) => {
       await register(userData, formData.password);
       toast({
         title: "Account Created",
-        description: "Welcome to Jeeva.AI! Your account has been created successfully.",
+        description: "Welcome to Jeeva.Tech! Your account has been created successfully.",
       });
     } catch (error) {
       toast({
@@ -91,7 +91,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onToggleMode }) => {
           <div className="flex justify-center mb-4">
             <HeartLogo className="h-8 w-8" />
           </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent">Join Jeeva.AI</CardTitle>
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent">Join Jeeva.Tech</CardTitle>
           <CardDescription>
             Create your health management account
           </CardDescription>

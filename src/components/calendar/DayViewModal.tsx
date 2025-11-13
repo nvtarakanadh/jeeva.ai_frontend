@@ -226,34 +226,88 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
   }, []);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] md:max-w-6xl max-h-[90vh] overflow-hidden p-0 bg-white shadow-2xl">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Day View - {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'Select a date'}</DialogTitle>
-          <DialogDescription>
-            View and manage appointments for {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'the selected date'}
-          </DialogDescription>
-        </DialogHeader>
-        {/* Clean Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Calendar className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'Select a date'}
-              </h2>
-              <p className="text-sm text-gray-600">Click on any time slot to schedule an event</p>
+    <>
+      <style>{`
+        @media (max-width: 768px) {
+          /* Hide scrollbar on mobile for day view */
+          .day-view-mobile-scroll::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            background: transparent !important;
+          }
+          .day-view-mobile-scroll {
+            -ms-overflow-style: none !important;
+            scrollbar-width: none !important;
+            scrollbar-color: transparent transparent !important;
+          }
+          /* Ensure container is flex column */
+          .day-view-mobile-container {
+            display: flex !important;
+            flex-direction: column !important;
+            max-height: 90vh !important;
+            height: auto !important;
+            overflow: hidden !important;
+          }
+          /* Prevent flex children from shrinking except scroll area */
+          .day-view-mobile-container > *:not(.day-view-mobile-scroll) {
+            flex-shrink: 0 !important;
+          }
+          /* Make scroll area flexible - account for header and legend */
+          .day-view-mobile-scroll {
+            flex: 1 1 0% !important;
+            min-height: 0 !important;
+            max-height: calc(90vh - 220px) !important;
+            height: 100% !important;
+            overflow-y: scroll !important;
+            overflow-x: hidden !important;
+            -webkit-overflow-scrolling: touch !important;
+            position: relative !important;
+            touch-action: pan-y !important;
+            will-change: scroll-position !important;
+          }
+          /* Ensure legend is always visible and not cut off */
+          .day-view-legend {
+            flex-shrink: 0 !important;
+            position: relative !important;
+            z-index: 10 !important;
+            padding-bottom: env(safe-area-inset-bottom, 1rem) !important;
+            margin-bottom: 0 !important;
+          }
+          /* Ensure scrollable area doesn't overlap legend */
+          .day-view-mobile-container {
+            padding-bottom: 0 !important;
+          }
+        }
+      `}</style>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-[95vw] md:max-w-6xl max-h-[90vh] overflow-hidden p-0 bg-white shadow-2xl day-view-mobile-container flex flex-col">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Day View - {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'Select a date'}</DialogTitle>
+            <DialogDescription>
+              View and manage appointments for {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'the selected date'}
+            </DialogDescription>
+          </DialogHeader>
+          {/* Clean Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Calendar className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'Select a date'}
+                </h2>
+                <p className="text-sm text-gray-600">Click on any time slot to schedule an event</p>
+              </div>
             </div>
           </div>
-        </div>
-        
-        {/* Main Content */}
-        <div className="flex-1 overflow-hidden">
-          {isMobile ? (
-            /* Mobile: Vertical List */
-            <div className="h-full overflow-y-auto">
+          
+          {/* Main Content */}
+          <div className="flex-1 overflow-hidden min-h-0 flex flex-col" style={{ minHeight: 0 }}>
+            {isMobile ? (
+              /* Mobile: Vertical List */
+              <div className="flex-1 overflow-y-auto day-view-mobile-scroll scrollbar-hide" style={{ minHeight: 0, height: '100%', WebkitOverflowScrolling: 'touch' }}>
               <div className="p-4 space-y-3">
                 {timeSlots.map((slot, index) => (
                   <div
@@ -431,7 +485,7 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
         </div>
 
         {/* Legend */}
-        <div className="p-4 border-t bg-gray-50">
+        <div className="p-4 pb-4 border-t bg-gray-50 flex-shrink-0 day-view-legend">
           <div className="flex flex-wrap gap-4 text-sm">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-green-500"></div>
@@ -458,6 +512,7 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
 
       </DialogContent>
     </Dialog>
+    </>
   );
 };
 

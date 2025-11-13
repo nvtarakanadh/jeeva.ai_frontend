@@ -1,4 +1,4 @@
-// Core types for Jeeva.AI application
+// Core types for Jeeva.Tech application
 export type UserRole = 'patient' | 'doctor';
 
 export interface User {

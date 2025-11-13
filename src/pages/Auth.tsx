@@ -198,7 +198,7 @@ const Auth = () => {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl text-center">
-            {isLogin ? 'Login to Jeeva.AI' : 'Join Jeeva.AI'}
+            {isLogin ? 'Login to Jeeva.Tech' : 'Join Jeeva.Tech'}
           </CardTitle>
           <CardDescription className="text-center">
             {isLogin 

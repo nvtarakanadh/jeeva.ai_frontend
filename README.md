@@ -1,4 +1,4 @@
-# Jeeva.AI - Patient-Centric Health Management Platform
+# Jeeva.Tech - Patient-Centric Health Management Platform
 
 A comprehensive health management platform that empowers patients with AI-driven health insights and consent-based data sharing.
 
@@ -116,7 +116,7 @@ For support, email support@jeeva.ai or create an issue in this repository.
 
 ## 🔗 Links
 
-- **Live Demo**: [Deployed on Vercel]
+- **Live Demo**: [https://jeeva-tech.vercel.app/](https://jeeva-tech.vercel.app/)
 - **Documentation**: [Coming Soon]
 - **API Docs**: [Coming Soon]
 

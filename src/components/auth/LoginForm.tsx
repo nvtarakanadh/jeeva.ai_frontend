@@ -48,7 +48,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
           <div className="flex justify-center mb-4">
             <HeartLogo className="h-8 w-8" />
           </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent">Welcome to Jeeva.AI</CardTitle>
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent">Welcome to Jeeva.Tech</CardTitle>
           <CardDescription>
             Sign in to your health management account
           </CardDescription>
