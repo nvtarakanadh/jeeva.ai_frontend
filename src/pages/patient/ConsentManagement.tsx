@@ -6,11 +6,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ConsentRequest, ConsentStatus, RecordType } from '@/types';
 import { format } from 'date-fns';
 import { CardLoadingSpinner, ButtonLoadingSpinner } from '@/components/ui/loading-spinner';
-import { Shield, Clock, CheckCircle, XCircle, AlertCircle, User, Calendar, RefreshCw } from 'lucide-react';
+import { Shield, Clock, CheckCircle, XCircle, AlertCircle, User, Calendar, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { getPatientConsentRequests, respondToConsentRequest, revokeConsentRequest } from '@/services/consentService';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import ConsentFormViewer from '@/components/consent/ConsentFormViewer';
 
 const ConsentManagement = () => {
   const { user } = useAuth();
@@ -19,6 +20,8 @@ const ConsentManagement = () => {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [patientProfileId, setPatientProfileId] = useState<string | null>(null);
+  const [viewingConsent, setViewingConsent] = useState<ConsentRequest | null>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
 
   // Load patient profile ID first, then consent requests
   useEffect(() => {
@@ -114,6 +117,48 @@ const ConsentManagement = () => {
       toast({
         title: "Error",
         description: "Failed to revoke consent",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteConsent = async (requestId: string) => {
+    if (!confirm('Are you sure you want to delete this consent? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Delete from consent_requests table
+      const { error: deleteError } = await supabase
+        .from('consent_requests')
+        .delete()
+        .eq('id', requestId);
+
+      if (deleteError) {
+        // If not found in consent_requests, try health_records
+        const { error: healthRecordError } = await supabase
+          .from('health_records')
+          .delete()
+          .eq('id', requestId)
+          .contains('tags', ['consent_form']);
+
+        if (healthRecordError) {
+          throw healthRecordError;
+        }
+      }
+
+      // Remove from state
+      setConsentRequests(prev => prev.filter(request => request.id !== requestId));
+      
+      toast({
+        title: "Consent deleted",
+        description: "The consent has been successfully deleted",
+      });
+    } catch (error) {
+      console.error('Error deleting consent:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete consent",
         variant: "destructive"
       });
     }
@@ -215,7 +260,14 @@ const ConsentManagement = () => {
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-warning">Pending Consent Requests</h2>
               {pendingRequests.map((request) => (
-            <Card key={request.id} className="border-warning">
+            <Card 
+              key={request.id} 
+              className="border-warning cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => {
+                setViewingConsent(request);
+                setIsViewerOpen(true);
+              }}
+            >
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div>
@@ -309,13 +361,19 @@ const ConsentManagement = () => {
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
-                      onClick={() => setSelectedRequest(request.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedRequest(request.id);
+                      }}
                     >
                       Review Request
                     </Button>
                     <Button
                       variant="destructive"
-                      onClick={() => handleConsentResponse(request.id, 'denied')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleConsentResponse(request.id, 'denied');
+                      }}
                     >
                       Deny
                     </Button>
@@ -332,7 +390,14 @@ const ConsentManagement = () => {
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-accent">Active Consents</h2>
           {activeConsents.map((request) => (
-            <Card key={request.id} className="border-accent">
+            <Card 
+              key={request.id} 
+              className="border-accent cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => {
+                setViewingConsent(request);
+                setIsViewerOpen(true);
+              }}
+            >
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div>
@@ -376,7 +441,10 @@ const ConsentManagement = () => {
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => handleRevokeConsent(request.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRevokeConsent(request.id);
+                  }}
                 >
                   Revoke Access
                 </Button>
@@ -391,7 +459,14 @@ const ConsentManagement = () => {
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-muted-foreground">Consent History</h2>
           {inactiveConsents.map((request) => (
-            <Card key={request.id} className="opacity-75">
+            <Card 
+              key={request.id} 
+              className="opacity-75 cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => {
+                setViewingConsent(request);
+                setIsViewerOpen(true);
+              }}
+            >
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div>
@@ -407,12 +482,26 @@ const ConsentManagement = () => {
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span>Requested: {format(request.requestedAt, 'PPP')}</span>
                   {request.respondedAt && (
                     <span>Responded: {format(request.respondedAt, 'PPP')}</span>
                   )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteConsent(request.id);
+                    }}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -421,6 +510,16 @@ const ConsentManagement = () => {
       )}
         </>
       )}
+
+      {/* Consent Form Viewer Modal */}
+      <ConsentFormViewer
+        isOpen={isViewerOpen}
+        onClose={() => {
+          setIsViewerOpen(false);
+          setViewingConsent(null);
+        }}
+        consentRequest={viewingConsent}
+      />
     </div>
   );
 };

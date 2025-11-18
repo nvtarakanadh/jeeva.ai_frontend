@@ -1,0 +1,334 @@
+From a5e21be3e14c782633070ba5e4673d6bde6c261a Mon Sep 17 00:00:00 2001
+From: nvtarakanadh <nvtarakanadh@gmail.com>
+Date: Thu, 13 Nov 2025 20:20:57 +0530
+Subject: [PATCH] Update branding from Jeeva.AI to Jeeva.Tech and fix mobile
+ calendar scrollbar
+
+---
+ README.md                                |   4 +-
+ index.html                               |   6 +-
+ src/components/auth/LoginForm.tsx        |   2 +-
+ src/components/auth/RegisterForm.tsx     |   4 +-
+ src/components/calendar/DayViewModal.tsx | 109 +++++++++++++++++------
+ src/index.css                            |  26 +++++-
+ src/locales/en.json                      |   2 +-
+ src/pages/Auth.tsx                       |   2 +-
+ src/types/index.ts                       |   2 +-
+ 9 files changed, 115 insertions(+), 42 deletions(-)
+
+diff --git a/README.md b/README.md
+index c92bb47..c51cf1b 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-# Jeeva.AI - Patient-Centric Health Management Platform
++# Jeeva.Tech - Patient-Centric Health Management Platform
+ 
+ A comprehensive health management platform that empowers patients with AI-driven health insights and consent-based data sharing.
+ 
+@@ -116,7 +116,7 @@ For support, email support@jeeva.ai or create an issue in this repository.
+ 
+ ## 🔗 Links
+ 
+-- **Live Demo**: [Deployed on Vercel]
++- **Live Demo**: [https://jeeva-tech.vercel.app/](https://jeeva-tech.vercel.app/)
+ - **Documentation**: [Coming Soon]
+ - **API Docs**: [Coming Soon]
+ 
+diff --git a/index.html b/index.html
+index 2ed0f16..c648245 100644
+--- a/index.html
++++ b/index.html
+@@ -3,7 +3,7 @@
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+-    <title>Jeeva.AI - Patient-Centric Health Management</title>
++    <title>Jeeva.Tech - Patient-Centric Health Management</title>
+     
+     <!-- Unicode fonts for multilingual support (Indic scripts) -->
+     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;500;600;700&family=Noto+Sans+Kannada:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Noto+Sans+Gujarati:wght@400;500;600;700&family=Noto+Sans+Gurmukhi:wght@400;500;600;700&display=swap" rel="stylesheet">
+@@ -18,9 +18,9 @@
+     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+     <link rel="apple-touch-icon" href="/logo.png" />
+     <meta name="description" content="Empower patients with AI-driven health insights and consent-based data sharing" />
+-    <meta name="author" content="Jeeva.AI" />
++    <meta name="author" content="Jeeva.Tech" />
+ 
+-    <meta property="og:title" content="Jeeva.AI - Patient-Centric Health Management" />
++    <meta property="og:title" content="Jeeva.Tech - Patient-Centric Health Management" />
+     <meta property="og:description" content="Empower patients with AI-driven health insights and consent-based data sharing" />
+     <meta property="og:type" content="website" />
+     <meta property="og:image" content="/icon.png" />
+diff --git a/src/components/auth/LoginForm.tsx b/src/components/auth/LoginForm.tsx
+index 6a281d1..6780802 100644
+--- a/src/components/auth/LoginForm.tsx
++++ b/src/components/auth/LoginForm.tsx
+@@ -48,7 +48,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
+           <div className="flex justify-center mb-4">
+             <HeartLogo className="h-8 w-8" />
+           </div>
+-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent">Welcome to Jeeva.AI</CardTitle>
++          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent">Welcome to Jeeva.Tech</CardTitle>
+           <CardDescription>
+             Sign in to your health management account
+           </CardDescription>
+diff --git a/src/components/auth/RegisterForm.tsx b/src/components/auth/RegisterForm.tsx
+index 2f73c53..9fad974 100644
+--- a/src/components/auth/RegisterForm.tsx
++++ b/src/components/auth/RegisterForm.tsx
+@@ -71,7 +71,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onToggleMode }) => {
+       await register(userData, formData.password);
+       toast({
+         title: "Account Created",
+-        description: "Welcome to Jeeva.AI! Your account has been created successfully.",
++        description: "Welcome to Jeeva.Tech! Your account has been created successfully.",
+       });
+     } catch (error) {
+       toast({
+@@ -91,7 +91,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onToggleMode }) => {
+           <div className="flex justify-center mb-4">
+             <HeartLogo className="h-8 w-8" />
+           </div>
+-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent">Join Jeeva.AI</CardTitle>
++          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-500 bg-clip-text text-transparent">Join Jeeva.Tech</CardTitle>
+           <CardDescription>
+             Create your health management account
+           </CardDescription>
+diff --git a/src/components/calendar/DayViewModal.tsx b/src/components/calendar/DayViewModal.tsx
+index 2d54b23..96b6fe9 100644
+--- a/src/components/calendar/DayViewModal.tsx
++++ b/src/components/calendar/DayViewModal.tsx
+@@ -226,34 +226,88 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
+   }, []);
+ 
+   return (
+-    <Dialog open={isOpen} onOpenChange={onClose}>
+-      <DialogContent className="max-w-[95vw] md:max-w-6xl max-h-[90vh] overflow-hidden p-0 bg-white shadow-2xl">
+-        <DialogHeader className="sr-only">
+-          <DialogTitle>Day View - {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'Select a date'}</DialogTitle>
+-          <DialogDescription>
+-            View and manage appointments for {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'the selected date'}
+-          </DialogDescription>
+-        </DialogHeader>
+-        {/* Clean Header */}
+-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+-          <div className="flex items-center gap-3">
+-            <div className="p-2 bg-blue-100 rounded-lg">
+-              <Calendar className="h-5 w-5 text-blue-600" />
+-            </div>
+-            <div>
+-              <h2 className="text-2xl font-bold text-gray-900">
+-                {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'Select a date'}
+-              </h2>
+-              <p className="text-sm text-gray-600">Click on any time slot to schedule an event</p>
++    <>
++      <style>{`
++        @media (max-width: 768px) {
++          /* Hide scrollbar on mobile for day view */
++          .day-view-mobile-scroll::-webkit-scrollbar {
++            display: none !important;
++            width: 0 !important;
++            height: 0 !important;
++            background: transparent !important;
++          }
++          .day-view-mobile-scroll {
++            -ms-overflow-style: none !important;
++            scrollbar-width: none !important;
++            scrollbar-color: transparent transparent !important;
++          }
++          /* Ensure container is flex column */
++          .day-view-mobile-container {
++            display: flex !important;
++            flex-direction: column !important;
++            max-height: 90vh !important;
++            height: auto !important;
++            overflow: hidden !important;
++          }
++          /* Prevent flex children from shrinking except scroll area */
++          .day-view-mobile-container > *:not(.day-view-mobile-scroll) {
++            flex-shrink: 0 !important;
++          }
++          /* Make scroll area flexible - account for header and legend */
++          .day-view-mobile-scroll {
++            flex: 1 1 0% !important;
++            min-height: 0 !important;
++            max-height: calc(90vh - 220px) !important;
++            height: 100% !important;
++            overflow-y: scroll !important;
++            overflow-x: hidden !important;
++            -webkit-overflow-scrolling: touch !important;
++            position: relative !important;
++            touch-action: pan-y !important;
++            will-change: scroll-position !important;
++          }
++          /* Ensure legend is always visible and not cut off */
++          .day-view-legend {
++            flex-shrink: 0 !important;
++            position: relative !important;
++            z-index: 10 !important;
++            padding-bottom: env(safe-area-inset-bottom, 1rem) !important;
++            margin-bottom: 0 !important;
++          }
++          /* Ensure scrollable area doesn't overlap legend */
++          .day-view-mobile-container {
++            padding-bottom: 0 !important;
++          }
++        }
++      `}</style>
++      <Dialog open={isOpen} onOpenChange={onClose}>
++        <DialogContent className="max-w-[95vw] md:max-w-6xl max-h-[90vh] overflow-hidden p-0 bg-white shadow-2xl day-view-mobile-container flex flex-col">
++          <DialogHeader className="sr-only">
++            <DialogTitle>Day View - {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'Select a date'}</DialogTitle>
++            <DialogDescription>
++              View and manage appointments for {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'the selected date'}
++            </DialogDescription>
++          </DialogHeader>
++          {/* Clean Header */}
++          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0">
++            <div className="flex items-center gap-3">
++              <div className="p-2 bg-blue-100 rounded-lg">
++                <Calendar className="h-5 w-5 text-blue-600" />
++              </div>
++              <div>
++                <h2 className="text-2xl font-bold text-gray-900">
++                  {selectedDate ? format(selectedDate, 'EEEE, MMMM d, yyyy') : 'Select a date'}
++                </h2>
++                <p className="text-sm text-gray-600">Click on any time slot to schedule an event</p>
++              </div>
+             </div>
+           </div>
+-        </div>
+-        
+-        {/* Main Content */}
+-        <div className="flex-1 overflow-hidden">
+-          {isMobile ? (
+-            /* Mobile: Vertical List */
+-            <div className="h-full overflow-y-auto">
++          
++          {/* Main Content */}
++          <div className="flex-1 overflow-hidden min-h-0 flex flex-col" style={{ minHeight: 0 }}>
++            {isMobile ? (
++              /* Mobile: Vertical List */
++              <div className="flex-1 overflow-y-auto day-view-mobile-scroll scrollbar-hide" style={{ minHeight: 0, height: '100%', WebkitOverflowScrolling: 'touch' }}>
+               <div className="p-4 space-y-3">
+                 {timeSlots.map((slot, index) => (
+                   <div
+@@ -431,7 +485,7 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
+         </div>
+ 
+         {/* Legend */}
+-        <div className="p-4 border-t bg-gray-50">
++        <div className="p-4 pb-4 border-t bg-gray-50 flex-shrink-0 day-view-legend">
+           <div className="flex flex-wrap gap-4 text-sm">
+             <div className="flex items-center gap-2">
+               <div className="w-3 h-3 rounded bg-green-500"></div>
+@@ -458,6 +512,7 @@ const DayViewModal: React.FC<DayViewModalProps> = ({
+ 
+       </DialogContent>
+     </Dialog>
++    </>
+   );
+ };
+ 
+diff --git a/src/index.css b/src/index.css
+index cdb9211..2a800ff 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -17,7 +17,7 @@ html, body, #root {
+   scrollbar-width: none; /* Firefox */
+ }
+ 
+-/* Jeeva.AI Design System - Healthcare focused color palette
++/* Jeeva.Tech Design System - Healthcare focused color palette
+ All colors MUST be HSL for consistency.
+ */
+ 
+@@ -27,13 +27,13 @@ All colors MUST be HSL for consistency.
+     --background: 0 0% 100%;
+     --foreground: 215 28% 17%;
+ 
+-    /* Jeeva.AI Primary - vibrant blue from logo */
++    /* Jeeva.Tech Primary - vibrant blue from logo */
+     --primary: 210 100% 50%;
+     --primary-foreground: 0 0% 100%;
+     --primary-light: 210 100% 95%;
+     --primary-dark: 210 100% 40%;
+ 
+-    /* Jeeva.AI Secondary - bright teal from logo */
++    /* Jeeva.Tech Secondary - bright teal from logo */
+     --secondary: 180 100% 50%;
+     --secondary-foreground: 0 0% 100%;
+     --secondary-light: 180 100% 95%;
+@@ -68,7 +68,7 @@ All colors MUST be HSL for consistency.
+ 
+     --radius: 0.75rem;
+ 
+-    /* Jeeva.AI brand gradients matching logo */
++    /* Jeeva.Tech brand gradients matching logo */
+     --gradient-hero: linear-gradient(135deg, hsl(210 100% 50%), hsl(180 100% 50%));
+     --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(210 100% 98%));
+     --gradient-accent: linear-gradient(90deg, hsl(210 100% 50%), hsl(180 100% 50%));
+@@ -165,6 +165,24 @@ All colors MUST be HSL for consistency.
+   display: none;  /* Safari and Chrome */
+ }
+ 
++/* Hide scrollbar for mobile day view */
++@media (max-width: 768px) {
++  .day-view-mobile-scroll::-webkit-scrollbar,
++  .day-view-mobile-container::-webkit-scrollbar,
++  .day-view-mobile-container *::-webkit-scrollbar {
++    display: none !important;
++    width: 0px !important;
++    height: 0px !important;
++    background: transparent !important;
++  }
++  .day-view-mobile-scroll,
++  .day-view-mobile-container,
++  .day-view-mobile-container * {
++    -ms-overflow-style: none !important;
++    scrollbar-width: none !important;
++  }
++}
++
+ /* Animated Gradient Button - Color Only */
+ .gradient-button {
+   background: linear-gradient(to right, #0096ff, #00a0ff, #00b4ff, #00c8ff) !important;
+diff --git a/src/locales/en.json b/src/locales/en.json
+index bb2cfa5..4fec2bc 100644
+--- a/src/locales/en.json
++++ b/src/locales/en.json
+@@ -1,6 +1,6 @@
+ {
+   "common": {
+-    "appName": "Jeeva.AI",
++    "appName": "Jeeva.Tech",
+     "healthManagementPlatform": "Health Management Platform",
+     "save": "Save",
+     "cancel": "Cancel",
+diff --git a/src/pages/Auth.tsx b/src/pages/Auth.tsx
+index 278ad1f..e742a36 100644
+--- a/src/pages/Auth.tsx
++++ b/src/pages/Auth.tsx
+@@ -198,7 +198,7 @@ const Auth = () => {
+       <Card className="w-full max-w-md">
+         <CardHeader>
+           <CardTitle className="text-2xl text-center">
+-            {isLogin ? 'Login to Jeeva.AI' : 'Join Jeeva.AI'}
++            {isLogin ? 'Login to Jeeva.Tech' : 'Join Jeeva.Tech'}
+           </CardTitle>
+           <CardDescription className="text-center">
+             {isLogin 
+diff --git a/src/types/index.ts b/src/types/index.ts
+index ff89bed..5db022c 100644
+--- a/src/types/index.ts
++++ b/src/types/index.ts
+@@ -1,4 +1,4 @@
+-// Core types for Jeeva.AI application
++// Core types for Jeeva.Tech application
+ export type UserRole = 'patient' | 'doctor';
+ 
+ export interface User {
+-- 
+2.49.0.windows.1
+

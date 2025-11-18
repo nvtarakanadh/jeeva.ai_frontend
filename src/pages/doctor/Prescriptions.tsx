@@ -39,6 +39,7 @@ const Prescriptions = () => {
   const [analysisPrescription, setAnalysisPrescription] = useState<Prescription | null>(null);
   const [isCreatingPrescription, setIsCreatingPrescription] = useState(false);
   const [analyzingPrescriptions, setAnalyzingPrescriptions] = useState<Set<string>>(new Set());
+  const [prescriptionsWithAnalysis, setPrescriptionsWithAnalysis] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState({
     patient_id: '',
@@ -146,6 +147,28 @@ const Prescriptions = () => {
   useEffect(() => {
     return () => setAnalyzingPrescriptions(new Set());
   }, []);
+
+  // Check which prescriptions have AI analysis available
+  useEffect(() => {
+    const checkAnalysisAvailability = async () => {
+      if (prescriptions.length === 0) return;
+      
+      const analysisChecks = prescriptions.map(async (prescription) => {
+        try {
+          const analysis = await getAIAnalysisForRecord(prescription.id);
+          return analysis ? prescription.id : null;
+        } catch {
+          return null;
+        }
+      });
+      
+      const results = await Promise.all(analysisChecks);
+      const withAnalysis = new Set(results.filter((id): id is string => id !== null));
+      setPrescriptionsWithAnalysis(withAnalysis);
+    };
+    
+    checkAnalysisAvailability();
+  }, [prescriptions]);
 
   const refreshData = async () => {
     if (!user) return;
@@ -809,26 +832,25 @@ const Prescriptions = () => {
                       <FileText className="h-4 w-4 mr-2" />
                       View
                     </Button>
-                    {prescription.file_url && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAnalysis(prescription)}
-                        disabled={analyzingPrescriptions.has(prescription.id)}
-                      >
-                        {analyzingPrescriptions.has(prescription.id) ? (
-                          <>
-                            <InlineLoadingSpinner />
-                            <span className="ml-2">AI Analytics</span>
-                          </>
-                        ) : (
-                          <>
-                            <Stethoscope className="h-4 w-4 mr-2" />
-                            AI Analytics
-                          </>
-                        )}
-                      </Button>
-                    )}
+                    {/* AI Analytics button - Show for all prescriptions */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAnalysis(prescription)}
+                      disabled={analyzingPrescriptions.has(prescription.id) && !prescriptionsWithAnalysis.has(prescription.id)}
+                    >
+                      {analyzingPrescriptions.has(prescription.id) && !prescriptionsWithAnalysis.has(prescription.id) ? (
+                        <>
+                          <InlineLoadingSpinner />
+                          <span className="ml-2">Analyzing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Stethoscope className="h-4 w-4 mr-2" />
+                          AI Analytics
+                        </>
+                      )}
+                    </Button>
                     <Button variant="outline" size="sm" className="text-red-600" onClick={() => handleDelete(prescription)}>
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete

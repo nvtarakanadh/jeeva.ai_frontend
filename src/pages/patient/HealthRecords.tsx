@@ -72,6 +72,7 @@ export const HealthRecords = () => {
         .from('health_records')
         .select('*')
         .eq('user_id', session.user.id)
+        .neq('record_type', 'consent') // Exclude consent records
         .order('created_at', { ascending: false });
 
       if (error) {

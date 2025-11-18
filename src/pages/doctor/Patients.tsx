@@ -232,11 +232,12 @@ const DoctorPatients = memo(() => {
           const patientIds = patientProfiles.map((p: any) => p.id);
           const patientUserIds = patientProfiles.map((p: any) => p.user_id);
           
-          // Batch query for health records
+          // Batch query for health records (excluding consent records)
           const { data: healthRecords } = await supabase
             .from('health_records')
             .select('user_id')
-            .in('user_id', patientUserIds);
+            .in('user_id', patientUserIds)
+            .neq('record_type', 'consent');
           
           // Batch query for prescriptions
           const { data: prescriptions } = await supabase
@@ -387,7 +388,8 @@ const DoctorPatients = memo(() => {
         supabase
           .from('health_records')
           .select('*')
-          .eq('user_id', (patientProfile as any).user_id),
+          .eq('user_id', (patientProfile as any).user_id)
+          .neq('record_type', 'consent'), // Exclude consent records
         supabase
           .from('prescriptions')
           .select(`

@@ -7,13 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ConsentRequest, ConsentStatus, RecordType } from '@/types';
 import { format } from 'date-fns';
 import { CardLoadingSpinner, ButtonLoadingSpinner } from '@/components/ui/loading-spinner';
-import { Shield, Clock, CheckCircle, XCircle, User, Calendar, Send, Search, RefreshCw } from 'lucide-react';
+import { Shield, Clock, CheckCircle, XCircle, User, Calendar, Send, Search, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { getDoctorConsentRequests, extendConsentRequest } from '@/services/consentService';
 import CreateConsentRequest from '@/components/consent/CreateConsentRequest';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import ConsentFormViewer from '@/components/consent/ConsentFormViewer';
 
 
 const DoctorConsents = () => {
@@ -24,6 +25,8 @@ const DoctorConsents = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [doctorProfileId, setDoctorProfileId] = useState<string | null>(null);
+  const [viewingConsent, setViewingConsent] = useState<ConsentRequest | null>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
 
   // Get doctor profile ID first
   useEffect(() => {
@@ -146,10 +149,57 @@ const DoctorConsents = () => {
     }
   };
 
+  const handleDeleteConsent = async (requestId: string) => {
+    if (!confirm('Are you sure you want to delete this consent? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Delete from consent_requests table
+      const { error: deleteError } = await supabase
+        .from('consent_requests')
+        .delete()
+        .eq('id', requestId);
+
+      if (deleteError) {
+        // If not found in consent_requests, try health_records
+        const { error: healthRecordError } = await supabase
+          .from('health_records')
+          .delete()
+          .eq('id', requestId)
+          .contains('tags', ['consent_form']);
+
+        if (healthRecordError) {
+          throw healthRecordError;
+        }
+      }
+
+      // Remove from state
+      setConsentRequests(prev => prev.filter(request => request.id !== requestId));
+      
+      toast({
+        title: "Consent deleted",
+        description: "The consent has been successfully deleted",
+      });
+    } catch (error) {
+      console.error('Error deleting consent:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete consent",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const pendingRequests = consentRequests.filter(r => r.status === 'pending');
+  const activeConsents = consentRequests.filter(r => r.status === 'approved');
+  const consentHistory = consentRequests.filter(r => ['denied', 'revoked', 'expired'].includes(r.status));
+
   const stats = {
-    pending: consentRequests.filter(r => r.status === 'pending').length,
-    approved: consentRequests.filter(r => r.status === 'approved').length,
+    pending: pendingRequests.length,
+    approved: activeConsents.length,
     denied: consentRequests.filter(r => r.status === 'denied').length,
+    revoked: consentRequests.filter(r => r.status === 'revoked').length,
     expired: consentRequests.filter(r => r.status === 'expired').length
   };
 
@@ -250,6 +300,7 @@ const DoctorConsents = () => {
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="denied">Denied</SelectItem>
+                <SelectItem value="revoked">Revoked</SelectItem>
                 <SelectItem value="expired">Expired</SelectItem>
               </SelectContent>
             </Select>
@@ -257,33 +308,42 @@ const DoctorConsents = () => {
         </CardContent>
       </Card>
 
-      {/* Consent Requests */}
-      <div className="space-y-4">
+      {/* Consent Requests - Categorized */}
         {loading ? (
           <Card>
             <CardContent className="text-center py-12">
               <CardLoadingSpinner text="Loading consent requests..." />
             </CardContent>
           </Card>
-        ) : filteredRequests.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-lg font-medium">No consent requests found</p>
-              <p className="text-muted-foreground">Try adjusting your filters or search terms</p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredRequests.map((request) => {
+      ) : (
+        <div className="space-y-6">
+          {/* Pending Consent Requests */}
+          {pendingRequests.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-warning">Pending Consent Requests</h2>
+              {pendingRequests
+                .filter(request => {
+                  const matchesSearch = searchTerm === '' || 
+                    request.requesterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    request.purpose.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    request.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    ((request as any).patientName && (request as any).patientName.toLowerCase().includes(searchTerm.toLowerCase()));
+                  return matchesSearch;
+                })
+                .map((request) => {
             const isExpiringSoon = request.expiresAt && request.expiresAt.getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000;
             
             return (
               <Card 
                 key={request.id} 
-                className={`hover:shadow-medium transition-all ${
+                className={`hover:shadow-medium transition-all cursor-pointer ${
                   request.status === 'pending' ? 'border-warning' : 
                   request.status === 'approved' ? 'border-accent' : ''
                 }`}
+                onClick={() => {
+                  setViewingConsent(request);
+                  setIsViewerOpen(true);
+                }}
               >
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -297,10 +357,10 @@ const DoctorConsents = () => {
                       </CardDescription>
                       <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                         <div>
-                          <span className="font-semibold">Patient:</span> {(request as any).patientName || 'Unknown Patient'}
+                          <span className="font-semibold">Patient:</span> <span className="text-warning">[REDACTED]</span>
                         </div>
                         <div>
-                          <span className="font-semibold">Patient ID:</span> {request.patientId}
+                          <span className="font-semibold">Patient ID:</span> <span className="text-warning">[REDACTED]</span>
                         </div>
                       </div>
                     </div>
@@ -355,41 +415,263 @@ const DoctorConsents = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleResendRequest(request.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleResendRequest(request.id);
+                        }}
                       >
                         <Send className="h-4 w-4 mr-2" />
                         Resend Request
-                      </Button>
-                    )}
-                    
-                    {request.status === 'approved' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleExtendAccess(request.id)}
-                      >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Extend Access
-                      </Button>
-                    )}
-                    
-                    {request.status === 'denied' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleResendRequest(request.id)}
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        Request Again
                       </Button>
                     )}
                   </div>
                 </CardContent>
               </Card>
             );
-          })
+          })}
+            </div>
+          )}
+
+          {/* Active Consents */}
+          {activeConsents.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-accent">Active Consents</h2>
+              {activeConsents
+                .filter(request => {
+                  const matchesSearch = searchTerm === '' || 
+                    request.requesterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    request.purpose.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    request.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    ((request as any).patientName && (request as any).patientName.toLowerCase().includes(searchTerm.toLowerCase()));
+                  return matchesSearch;
+                })
+                .map((request) => {
+            const isExpiringSoon = request.expiresAt && request.expiresAt.getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000;
+            
+            return (
+              <Card 
+                key={request.id} 
+                className="hover:shadow-medium transition-all cursor-pointer border-accent"
+                onClick={() => {
+                  setViewingConsent(request);
+                  setIsViewerOpen(true);
+                }}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <User className="h-5 w-5" />
+                        {request.requesterName}
+                      </CardTitle>
+                      <CardDescription>
+                        {request.purpose}
+                      </CardDescription>
+                      <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                        <div>
+                          <span className="font-semibold">Patient:</span> <span className="text-warning">[REDACTED]</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold">Patient ID:</span> <span className="text-warning">[REDACTED]</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isExpiringSoon && (
+                        <Badge className="bg-warning text-white">
+                          Expiring Soon
+                        </Badge>
+                      )}
+                      <Badge className={`${getStatusColor(request.status)} text-white`}>
+                        {getStatusIcon(request.status)}
+                        <span className="ml-1 capitalize">{request.status}</span>
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {request.message && (
+                    <div className="bg-muted p-3 rounded-lg">
+                      <p className="text-sm">{request.message}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <h4 className="font-semibold mb-2">Requested Data Types:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {request.requestedDataTypes.map((type) => (
+                        <Badge key={type} variant="outline">
+                          {type.replace('_', ' ')}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Requested: {format(request.requestedAt, 'PPP')}
+                    </span>
+                    {request.respondedAt && (
+                      <span>Responded: {format(request.respondedAt, 'PPP')}</span>
+                    )}
+                    {request.expiresAt && (
+                      <span>Expires: {format(request.expiresAt, 'PPP')}</span>
+                    )}
+                    <span>Duration: {request.duration} days</span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleExtendAccess(request.id);
+                      }}
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Extend Access
+                      </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+            </div>
+          )}
+
+          {/* Consent History */}
+          {consentHistory.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-muted-foreground">Consent History</h2>
+              {consentHistory
+                .filter(request => {
+                  const matchesSearch = searchTerm === '' || 
+                    request.requesterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    request.purpose.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    request.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    ((request as any).patientName && (request as any).patientName.toLowerCase().includes(searchTerm.toLowerCase()));
+                  const matchesStatus = filterStatus === 'all' || request.status === filterStatus;
+                  return matchesSearch && matchesStatus;
+                })
+                .map((request) => {
+            return (
+              <Card 
+                key={request.id} 
+                className="hover:shadow-medium transition-all cursor-pointer"
+                onClick={() => {
+                  setViewingConsent(request);
+                  setIsViewerOpen(true);
+                }}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <User className="h-5 w-5" />
+                        {request.requesterName}
+                      </CardTitle>
+                      <CardDescription>
+                        {request.purpose}
+                      </CardDescription>
+                      <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                        <div>
+                          <span className="font-semibold">Patient:</span> <span className="text-warning">[REDACTED]</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold">Patient ID:</span> <span className="text-warning">[REDACTED]</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={`${getStatusColor(request.status)} text-white`}>
+                        {getStatusIcon(request.status)}
+                        <span className="ml-1 capitalize">{request.status}</span>
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {request.message && (
+                    <div className="bg-muted p-3 rounded-lg">
+                      <p className="text-sm">{request.message}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <h4 className="font-semibold mb-2">Requested Data Types:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {request.requestedDataTypes.map((type) => (
+                        <Badge key={type} variant="outline">
+                          {type.replace('_', ' ')}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Requested: {format(request.requestedAt, 'PPP')}
+                    </span>
+                    {request.respondedAt && (
+                      <span>Responded: {format(request.respondedAt, 'PPP')}</span>
+                    )}
+                    {request.expiresAt && (
+                      <span>Expires: {format(request.expiresAt, 'PPP')}</span>
+                    )}
+                    <span>Duration: {request.duration} days</span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
+                    {request.status === 'denied' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleResendRequest(request.id);
+                        }}
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        Request Again
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteConsent(request.id);
+                      }}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+            </div>
+          )}
+
+          {/* No Results */}
+          {pendingRequests.length === 0 && activeConsents.length === 0 && consentHistory.length === 0 && (
+            <Card>
+              <CardContent className="text-center py-12">
+                <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-lg font-medium">No consent requests found</p>
+                <p className="text-muted-foreground">Try adjusting your filters or search terms</p>
+              </CardContent>
+            </Card>
         )}
       </div>
+      )}
 
       {/* ABDM Compliance Note */}
       <Card className="border-accent">
@@ -406,6 +688,16 @@ const DoctorConsents = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Consent Form Viewer Modal */}
+      <ConsentFormViewer
+        isOpen={isViewerOpen}
+        onClose={() => {
+          setIsViewerOpen(false);
+          setViewingConsent(null);
+        }}
+        consentRequest={viewingConsent}
+      />
     </div>
   );
 };

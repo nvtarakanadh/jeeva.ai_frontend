@@ -80,6 +80,38 @@ export const getConsentFormsFromHealthRecords = async (doctorProfileId?: string,
 
     const patientMap = new Map(patientProfiles?.map(p => [p.user_id, p]) || []);
 
+    // Get all unique doctor IDs from metadata to fetch their names in batch
+    const doctorIds = new Set<string>();
+    data.forEach(record => {
+      try {
+        const description = record.description || '';
+        const metadataMatch = description.match(/\[METADATA\]\s*(\{[\s\S]*\})/);
+        if (metadataMatch) {
+          const metadata = JSON.parse(metadataMatch[1]);
+          if (metadata.doctor_id) {
+            doctorIds.add(metadata.doctor_id);
+          }
+        }
+      } catch (e) {
+        // Skip if metadata parsing fails
+      }
+    });
+
+    // Fetch all doctor profiles in batch
+    const doctorProfilesMap = new Map<string, string>();
+    if (doctorIds.size > 0) {
+      const { data: doctorProfiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', Array.from(doctorIds));
+      
+      doctorProfiles?.forEach((doc: any) => {
+        if (doc.full_name) {
+          doctorProfilesMap.set(doc.id, doc.full_name);
+        }
+      });
+    }
+
     // Process records and filter by doctor if needed
     const consentForms = data
       .map(record => {
@@ -107,16 +139,26 @@ export const getConsentFormsFromHealthRecords = async (doctorProfileId?: string,
           }
         }
 
+        // Determine requester name - prioritize provider_name, then doctorProfile, then doctorProfilesMap
+        let requesterName = record.provider_name || 'Unknown Doctor';
+        if (!requesterName || requesterName === 'Unknown Doctor') {
+          if (doctorProfile?.full_name) {
+            requesterName = doctorProfile.full_name;
+          } else if (metadata.doctor_id && doctorProfilesMap.has(metadata.doctor_id)) {
+            requesterName = doctorProfilesMap.get(metadata.doctor_id)!;
+          }
+        }
+
         return {
           id: record.id,
           patientId: metadata.patient_id || patientProfile?.id || record.user_id,
           patientName: metadata.patient_name || patientProfile?.full_name || 'Unknown Patient',
-          requesterId: doctorProfileId || '',
-          requesterName: record.provider_name || doctorProfile?.full_name || 'Unknown Doctor',
+          requesterId: doctorProfileId || metadata.doctor_id || '',
+          requesterName: requesterName,
           purpose: record.title,
           requestedDataTypes: ['health_records'] as RecordType[],
           duration: metadata.duration_days || 30,
-          status: 'approved' as ConsentStatus, // Consent forms are pre-approved
+          status: (metadata.status === 'pending' ? 'pending' : 'approved') as ConsentStatus, // Check metadata for status, default to approved for backward compatibility
           requestedAt: new Date(record.created_at),
           expiresAt: metadata.expires_at ? new Date(metadata.expires_at) : undefined,
           message: undefined
@@ -163,24 +205,28 @@ export const getDoctorConsentRequests = async (doctorProfileId: string): Promise
       return request;
     });
 
-    // Combine and process all requests
-    const allRequests = [...consentRequestsData, ...consentForms];
-
     // Get doctor names for all requests
-    const doctorIds = [...new Set(allRequests.map(r => r.requesterId).filter(Boolean))];
+    // Collect doctor IDs from both consent_requests (doctor_id) and consentForms (requesterId)
+    const doctorIdsFromRequests = consentRequests.map((r: any) => r.doctor_id).filter(Boolean);
+    const doctorIdsFromForms = consentForms.map(r => r.requesterId).filter(Boolean);
+    const allDoctorIds = [...new Set([...doctorIdsFromRequests, ...doctorIdsFromForms])];
+    
     const { data: doctorProfiles } = await supabase
       .from('profiles')
       .select('id, full_name')
-      .in('id', doctorIds);
+      .in('id', allDoctorIds);
 
     const doctorMap = new Map(doctorProfiles?.map(p => [p.id, p.full_name]) || []);
 
     // Get patient names for all requests
-    const patientIds = [...new Set(allRequests.map(r => r.patientId).filter(Boolean))];
+    const patientIdsFromRequests = consentRequests.map((r: any) => r.patient_id).filter(Boolean);
+    const patientIdsFromForms = consentForms.map(r => r.patientId).filter(Boolean);
+    const allPatientIds = [...new Set([...patientIdsFromRequests, ...patientIdsFromForms])];
+    
     const { data: patientProfiles } = await supabase
       .from('profiles')
       .select('id, full_name')
-      .in('id', patientIds);
+      .in('id', allPatientIds);
 
     const patientMap = new Map(patientProfiles?.map(p => [p.id, p.full_name]) || []);
 
@@ -533,70 +579,256 @@ export const respondToConsentRequest = async (
 // Revoke a consent request
 export const revokeConsentRequest = async (requestId: string): Promise<ConsentRequest> => {
   try {
-    // First, get the original request to understand what access needs to be revoked
-    const { data: originalRequest, error: fetchError } = await supabase
+    console.log('🔄 Starting to revoke consent request:', requestId);
+    
+    // First, try to get the request from consent_requests table
+    let originalRequest: any = null;
+    let isFromHealthRecords = false;
+    
+    const { data: consentRequest, error: fetchError } = await supabase
       .from('consent_requests')
       .select('*')
       .eq('id', requestId)
-      .single();
+      .maybeSingle();
 
-    if (fetchError) throw fetchError;
+    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('❌ Error fetching consent request:', fetchError);
+      throw new Error(`Failed to fetch consent request: ${fetchError.message}`);
+    }
 
-    // Update the consent request
-    const { data, error } = await supabase
-      .from('consent_requests')
-      .update({
-        status: 'revoked',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', requestId)
-      .select('*')
-      .single();
+    if (consentRequest) {
+      originalRequest = consentRequest;
+      isFromHealthRecords = false;
+      console.log('✅ Found consent request in consent_requests table:', originalRequest);
+    } else {
+      // Not found in consent_requests, check if it's a consent form from health_records
+      console.log('⚠️ Not found in consent_requests, checking health_records...');
+      const { data: healthRecord, error: healthRecordError } = await supabase
+        .from('health_records')
+        .select('*')
+        .eq('id', requestId)
+        .contains('tags', ['consent_form'])
+        .maybeSingle();
 
-    if (error) throw error;
+      if (healthRecordError && healthRecordError.code !== 'PGRST116') {
+        console.error('❌ Error fetching health record:', healthRecordError);
+        throw new Error(`Failed to fetch consent form: ${healthRecordError.message}`);
+      }
+
+      if (healthRecord) {
+        // Parse metadata to get consent request info
+        let metadata: any = {};
+        try {
+          const description = healthRecord.description || '';
+          const metadataMatch = description.match(/\[METADATA\]\s*(\{[\s\S]*\})/);
+          if (metadataMatch) {
+            metadata = JSON.parse(metadataMatch[1]);
+          }
+        } catch (e) {
+          console.error('Error parsing metadata:', e);
+        }
+
+        // Convert health record to consent request format
+        originalRequest = {
+          id: healthRecord.id,
+          patient_id: metadata.patient_id || healthRecord.user_id,
+          doctor_id: metadata.doctor_id || '',
+          purpose: healthRecord.title,
+          requested_data_types: ['health_records'],
+          duration_days: metadata.duration_days || 30,
+          status: metadata.status || 'approved',
+          requested_at: healthRecord.created_at,
+          responded_at: metadata.responded_at,
+          expires_at: metadata.expires_at,
+          message: undefined
+        };
+        isFromHealthRecords = true;
+        console.log('✅ Found consent form in health_records:', originalRequest);
+      } else {
+        throw new Error('Consent request not found in consent_requests or health_records');
+      }
+    }
+
+    let updatedRequest: any = null;
+
+    if (isFromHealthRecords) {
+      // Update health record consent form
+      console.log('🔄 Updating consent form in health_records...');
+      
+      // Get the full health record to access description
+      const { data: healthRecord, error: healthRecordFetchError } = await supabase
+        .from('health_records')
+        .select('description')
+        .eq('id', requestId)
+        .single();
+
+      if (healthRecordFetchError || !healthRecord) {
+        throw new Error('Failed to fetch health record for update');
+      }
+
+      // Parse existing metadata
+      let metadata: any = {};
+      try {
+        const description = healthRecord.description || '';
+        const metadataMatch = description.match(/\[METADATA\]\s*(\{[\s\S]*\})/);
+        if (metadataMatch) {
+          metadata = JSON.parse(metadataMatch[1]);
+        }
+      } catch (e) {
+        console.error('Error parsing metadata:', e);
+      }
+
+      // Update metadata status
+      metadata.status = 'revoked';
+      metadata.revoked_at = new Date().toISOString();
+
+      // Reconstruct description with updated metadata
+      let descriptionWithoutMetadata = healthRecord.description || '';
+      const metadataIndex = descriptionWithoutMetadata.indexOf('[METADATA]');
+      if (metadataIndex !== -1) {
+        descriptionWithoutMetadata = descriptionWithoutMetadata.substring(0, metadataIndex).trim();
+      }
+
+      const updatedDescription = `${descriptionWithoutMetadata}\n\n---\n[METADATA]\n${JSON.stringify(metadata, null, 2)}`;
+
+      const { data: updatedHealthRecord, error: updateError } = await supabase
+        .from('health_records')
+        .update({
+          tags: ['consent_form', 'revoked', ...(metadata.de_identified ? ['de-identified'] : ['identified'])],
+          description: updatedDescription
+        })
+        .eq('id', requestId)
+        .select('*')
+        .maybeSingle();
+
+      if (updateError) {
+        console.error('❌ Error updating health record:', updateError);
+        throw new Error(`Failed to update consent form: ${updateError.message}`);
+      }
+
+      if (!updatedHealthRecord) {
+        throw new Error('Failed to verify consent form update');
+      }
+
+      updatedRequest = {
+        ...originalRequest,
+        status: 'revoked'
+      };
+      console.log('✅ Successfully updated consent form in health_records');
+    } else {
+      // Update consent request in consent_requests table
+      console.log('🔄 Updating consent request in consent_requests table...');
+      
+      const updateData: any = {
+        status: 'revoked'
+      };
+
+      // Try the update without updated_at first
+      let { data: updated, error: updateError } = await supabase
+        .from('consent_requests')
+        .update(updateData)
+        .eq('id', requestId)
+        .select('*')
+        .maybeSingle();
+
+      // If that fails, try with updated_at
+      if (updateError || !updated) {
+        console.log('⚠️ First update attempt failed, trying with updated_at...');
+        updateData.updated_at = new Date().toISOString();
+        const retryResult = await supabase
+          .from('consent_requests')
+          .update(updateData)
+          .eq('id', requestId)
+          .select('*')
+          .maybeSingle();
+        
+        updated = retryResult.data;
+        updateError = retryResult.error;
+      }
+
+      if (updateError) {
+        console.error('❌ Error updating consent request:', updateError);
+        throw new Error(`Failed to update consent request: ${updateError.message}`);
+      }
+
+      if (!updated) {
+        // If no data returned, fetch it again to get the updated record
+        const { data: refetched, error: refetchError } = await supabase
+          .from('consent_requests')
+          .select('*')
+          .eq('id', requestId)
+          .maybeSingle();
+        
+        if (refetchError || !refetched) {
+          throw new Error('Failed to verify consent request update');
+        }
+        updated = refetched;
+      }
+
+      updatedRequest = updated;
+      console.log('✅ Successfully updated consent request:', updatedRequest);
+    }
 
     // Revoke corresponding patient_access records
-    console.log('Revoking patient access records for revoked consent:', {
+    console.log('🔄 Revoking patient access records for revoked consent:', {
       patientId: originalRequest.patient_id,
       doctorId: originalRequest.doctor_id
     });
 
-    const { error: revokeError } = await supabase
+    const accessUpdateData: any = {
+      status: 'revoked'
+    };
+
+    // Try without updated_at first
+    let { error: revokeError } = await supabase
       .from('patient_access')
-      .update({
-        status: 'revoked',
-        updated_at: new Date().toISOString()
-      })
+      .update(accessUpdateData)
       .eq('patient_id', originalRequest.patient_id)
       .eq('doctor_id', originalRequest.doctor_id)
       .eq('status', 'active');
 
+    // If that fails, try with updated_at
     if (revokeError) {
-      console.error('Error revoking patient access records:', revokeError);
-      // Don't throw here, just log the error
-    } else {
-      console.log('Successfully revoked patient access records');
+      console.log('⚠️ First patient_access update failed, trying with updated_at...');
+      accessUpdateData.updated_at = new Date().toISOString();
+      const retryResult = await supabase
+        .from('patient_access')
+        .update(accessUpdateData)
+        .eq('patient_id', originalRequest.patient_id)
+        .eq('doctor_id', originalRequest.doctor_id)
+        .eq('status', 'active');
+      
+      revokeError = retryResult.error;
     }
 
-    const doctorName = await getDoctorName(data.doctor_id);
+    if (revokeError) {
+      console.error('⚠️ Error revoking patient access records (non-fatal):', revokeError);
+      // Don't throw here, just log the error - the consent request was revoked successfully
+    } else {
+      console.log('✅ Successfully revoked patient access records');
+    }
+
+    const doctorName = await getDoctorName(updatedRequest.doctor_id);
 
     return {
-      id: data.id,
-      patientId: data.patient_id,
-      requesterId: data.doctor_id,
+      id: updatedRequest.id,
+      patientId: updatedRequest.patient_id,
+      requesterId: updatedRequest.doctor_id,
       requesterName: doctorName,
-      purpose: data.purpose,
-      requestedDataTypes: data.requested_data_types as RecordType[],
-      duration: data.duration_days,
-      status: data.status as ConsentStatus,
-      requestedAt: new Date(data.requested_at),
-      respondedAt: data.responded_at ? new Date(data.responded_at) : undefined,
-      expiresAt: data.expires_at ? new Date(data.expires_at) : undefined,
-      message: data.message
+      purpose: updatedRequest.purpose,
+      requestedDataTypes: updatedRequest.requested_data_types as RecordType[],
+      duration: updatedRequest.duration_days,
+      status: updatedRequest.status as ConsentStatus,
+      requestedAt: new Date(updatedRequest.requested_at),
+      respondedAt: updatedRequest.responded_at ? new Date(updatedRequest.responded_at) : undefined,
+      expiresAt: updatedRequest.expires_at ? new Date(updatedRequest.expires_at) : undefined,
+      message: updatedRequest.message
     };
-  } catch (error) {
-    console.error('Error revoking consent request:', error);
-    throw error;
+  } catch (error: any) {
+    console.error('❌ Error revoking consent request:', error);
+    // Provide a more user-friendly error message
+    const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
+    throw new Error(`Failed to revoke consent: ${errorMessage}`);
   }
 };
 

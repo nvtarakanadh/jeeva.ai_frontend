@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { getPatientsForDoctor } from '@/services/consentService';
+import { getPatientsForDoctor, createConsentRequest } from '@/services/consentService';
+import { RecordType } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Plus, Send, Shield, Eye, EyeOff } from 'lucide-react';
@@ -277,6 +278,26 @@ ${deIdentified ? 'NOTE: This document has been de-identified for privacy protect
         throw new Error('Doctor profile not found');
       }
 
+      // Create a consent REQUEST (not a form) that requires patient approval
+      // This will be stored in consent_requests table with status 'pending'
+      const consentRequestData = {
+        patientId: selectedPatient,
+        doctorId: doctorId,
+        purpose: purpose || `Consent for ${procedure || 'Procedure'}`,
+        requestedDataTypes: ['health_records'] as RecordType[], // Default to health records access
+        duration: duration,
+        message: `Consent request for: ${procedure || purpose}${summary ? `\n\nSummary: ${summary}` : ''}${consentStatement ? `\n\nConsent Statement: ${consentStatement}` : ''}`
+      };
+
+      console.log('📝 Creating consent request:', consentRequestData);
+
+      // Create the consent request (this will have status 'pending' and require patient approval)
+      const consentRequest = await createConsentRequest(consentRequestData);
+
+      console.log('✅ Successfully created consent request:', consentRequest);
+
+      // Optionally, also create a consent form document in health_records for reference
+      // But mark it as pending approval
       const consentDocument = formatConsentDocument();
       
       // Format service_date properly (convert date string to ISO datetime)
@@ -287,36 +308,40 @@ ${deIdentified ? 'NOTE: This document has been de-identified for privacy protect
       // Store metadata as JSON in description (since metadata column doesn't exist in Supabase)
       const metadata = {
         type: 'consent_form',
+        consent_request_id: consentRequest.id, // Link to the consent request
+        doctor_id: doctorId, // Store doctor profile ID for easy lookup
         de_identified: deIdentified,
-        patient_id: selectedPatient, // Always include patient ID
+        patient_id: selectedPatient,
         patient_name: deIdentified ? '[REDACTED]' : selectedPatientData?.name,
         mrn: deIdentified ? '[REDACTED]' : selectedPatientData?.mrn || '',
         procedure: procedure,
         summary: summary,
         consent_statement: consentStatement,
         witness: witness,
-        provider: provider,
+        provider: provider || doctorProfile.full_name, // Store provider name
         purpose: purpose,
         duration_days: duration,
+        status: 'pending', // Mark as pending until patient approves
         expires_at: new Date(Date.now() + duration * 24 * 60 * 60 * 1000).toISOString()
       };
 
       // Combine consent document with metadata JSON
       const fullDescription = `${consentDocument}\n\n---\n[METADATA]\n${JSON.stringify(metadata, null, 2)}`;
       
+      // Create the consent form document in health_records (for reference, but status is pending)
       const { data: insertedRecord, error: insertError } = await supabase
         .from('health_records')
         .insert({
           id: crypto.randomUUID(),
-          user_id: patientProfile.user_id, // Use user_id from profiles table
-          record_type: 'consultation',
+          user_id: patientProfile.user_id,
+          record_type: 'consent', // Use 'consent' type instead of 'consultation'
           title: deIdentified 
-            ? 'Consent for Procedure (Sanitized Version)'
-            : `Consent for ${procedure || purpose}`,
+            ? 'Consent for Procedure (Sanitized Version) - Pending Approval'
+            : `Consent for ${procedure || purpose} - Pending Approval`,
           description: fullDescription,
           service_date: serviceDateISO,
           provider_name: doctorProfile.full_name || 'Unknown Doctor',
-          tags: ['consent_form', deIdentified ? 'de-identified' : 'identified'],
+          tags: ['consent_form', 'pending_approval', deIdentified ? 'de-identified' : 'identified'],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -324,16 +349,16 @@ ${deIdentified ? 'NOTE: This document has been de-identified for privacy protect
         .single();
 
       if (insertError) {
-        console.error('❌ Error inserting health record:', insertError);
-        console.error('❌ Full error details:', JSON.stringify(insertError, null, 2));
-        throw new Error(`Failed to save consent form: ${insertError.message}`);
+        console.error('⚠️ Warning: Error inserting consent form document:', insertError);
+        // Don't throw - the consent request was created successfully
+        // The form document is just for reference
+      } else {
+        console.log('✅ Successfully created consent form document:', insertedRecord);
       }
 
-      console.log('✅ Successfully created consent form:', insertedRecord);
-
       toast({
-        title: t('consentForm.success'),
-        description: t('consentForm.formSavedSuccessfully'),
+        title: "Consent request sent",
+        description: `Consent request has been sent to the patient. They will be notified and can approve or deny the request.`,
       });
 
       // Reset form

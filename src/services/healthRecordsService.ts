@@ -28,6 +28,7 @@ export const getHealthRecords = async (userId: string): Promise<HealthRecord[]> 
       .from('health_records')
       .select('*')
       .eq('user_id', userId)
+      .neq('record_type', 'consent') // Exclude consent records
       .order('service_date', { ascending: false });
 
     if (error) {

@@ -44,6 +44,8 @@ import FinancePartners from "./pages/patient/FinancePartners";
 import TeleHealth from "./pages/patient/TeleHealth";
 import RemoteMonitoring from "./pages/patient/RemoteMonitoring";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
+import SearchPage from "./pages/Search";
 import MainLayout from "./layouts/MainLayout";
 
 const queryClient = new QueryClient();
@@ -80,6 +82,7 @@ const App = () => {
                         <Route path="/" element={<Index />} />
                         <Route path="/auth" element={<Auth />} />
                         <Route path="/login" element={<Auth />} />
+                        <Route path="/reset-password" element={<ResetPassword />} />
                 
                 {/* Patient Routes */}
                 <Route path="/dashboard" element={
@@ -284,6 +287,12 @@ const App = () => {
                           </ProtectedRoute>
                         } />
                 
+                {/* Search Route - Available for both doctors and patients */}
+                <Route path="/search" element={
+                  <ProtectedRoute allowedRoles={['doctor', 'patient']}>
+                    <MainLayout><SearchPage /></MainLayout>
+                  </ProtectedRoute>
+                } />
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
